@@ -14,6 +14,7 @@
 ## Learning Collaboration Notes
 
 - The learner is coming from CS336 Assignment 1 and already understands the basics of Transformer blocks, causal attention, RoPE, RMSNorm, MLP/SwiGLU, tokenization, generation, training loops, checkpoints, and experiment logging.
+- Before deciding the next implementation step, read the matching guide chapter in `book/src/*.md` and follow the book order. Do not infer the next task only from test names or unfinished functions.
 - When starting a new tiny-llm chapter, first read the corresponding `book/src/week*-*.md` file and explain:
   - what the chapter is trying to build,
   - why the component exists in LLM inference/serving,
@@ -54,6 +55,7 @@ pdm run test-refsol -- -- -k week_1
 2. Use pytest filters via `-- -k ...` to isolate failing tasks.
 3. Run broader suites only after targeted tests pass.
 4. If extension code changed, rebuild extensions before testing.
+5. After a guide task is completed and the matching tests pass, commit and push the completed task unless the learner explicitly says not to.
 
 ## Canonical Commands
 
