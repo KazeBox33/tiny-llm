@@ -9,6 +9,28 @@
 
 - Run and verify tests in a way that matches the book workflow (`book/src/*.md`).
 - Prefer `pdm` entrypoints defined in `pyproject.toml`.
+- Support this repository as a learning project, not just a code-completion task.
+
+## Learning Collaboration Notes
+
+- The learner is coming from CS336 Assignment 1 and already understands the basics of Transformer blocks, causal attention, RoPE, RMSNorm, MLP/SwiGLU, tokenization, generation, training loops, checkpoints, and experiment logging.
+- When starting a new tiny-llm chapter, first read the corresponding `book/src/week*-*.md` file and explain:
+  - what the chapter is trying to build,
+  - why the component exists in LLM inference/serving,
+  - how it connects to the learner's CS336 implementation,
+  - which files and tests are involved.
+- Do not jump straight to a full implementation unless explicitly asked. Prefer the CS336 learning style:
+  1. translate and summarize the task,
+  2. explain the math/system idea,
+  3. explain relevant Python/MLX syntax from basics,
+  4. show the next small code block or patch location,
+  5. let the learner write or inspect it,
+  6. run the smallest matching test.
+- When code is shown, explain each important line's purpose, tensor shape expectations, dtype/precision behavior, and where data moves between CPU/GPU/MLX arrays.
+- For inference-system topics such as KV cache, batching, quantization, FlashAttention, paged attention, and MoE, emphasize the engineering tradeoff: memory layout, compute reuse, latency, throughput, and correctness.
+- If a task needs implementation by the agent, keep edits scoped to the chapter/task files and preserve the course's intended structure. Avoid writing real implementations inside test adapters or reference-solution files.
+- Record meaningful experiments, performance observations, debugging lessons, and optimization points in a durable Markdown file when they are useful for later review or resume writing.
+- Prefer comparing with the CS336 codebase when helpful, but avoid mixing CS336 training code into tiny-llm unless the learner explicitly asks for a cross-project note.
 
 ## Environment Requirements
 
