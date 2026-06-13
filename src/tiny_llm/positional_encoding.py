@@ -39,7 +39,14 @@ class RoPE:
         sin=self.sin_freqs[offset].reshape(1,L,1,self.half_dims)
 
         if not self.traditional:
-            raise NotImplementedError("non-traditional RoPE will be implemented in task 2")
+            x1=x[...,:self.half_dims]
+            x2=x[...,self.half_dims:self.dims]
+
+            out1=x1*cos-x2*sin
+            out2=x1*sin+x2*cos
+
+            out=mx.concat([out1,out2],axis=-1)
+            return out.astype(dtype)
         
         x=x.reshape(N,L,H,self.half_dims,2)
         x_even=x[...,0]
