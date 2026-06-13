@@ -69,8 +69,10 @@ class SimpleMultiHeadAttention:
         return linear(attention_output,self.wo)
 
 
-def causal_mask(L: int, S: int, dtype: mx.Dtype) -> mx.array:
-    pass
+def causal_mask(L: int, S: int, dtype: mx.Dtype) -> mx.array: #L 这次有多少个 query token 要计算 attention S: 每个 query token 可以去看的 key/value token 总数
+    mask=mx.tril(mx.ones((L,S)),k=S-L)
+    mask=mx.where(mask,mx.array(0),mx.array(-mx.inf))
+    return mask.astype(dtype)
 
 
 def scaled_dot_product_attention_grouped(  # k v 复用头
@@ -96,9 +98,12 @@ def scaled_dot_product_attention_grouped(  # k v 复用头
     scores=query@key.swapaxes(-1,-2) *scale
 
     if mask is not None:
-        mask=mx.broadcast_to(mask,(*batch_dims,H_q,L,S))
-        mask=mask.reshape(*batch_dims,H,n_repeats,L,S)
-        scores=scores+mask
+        if mask=="causal":
+            scores=scores+causal_mask(L,S,scores.dtype)
+        else:
+            mask=mx.broadcast_to(mask,(*batch_dims,H_q,L,S)) #广播
+            mask=mask.reshape(*batch_dims,H,n_repeats,L,S)
+            scores=scores+mask
 
     attention_weights=softmax(scores,axis=-1)
     output=attention_weights@value
