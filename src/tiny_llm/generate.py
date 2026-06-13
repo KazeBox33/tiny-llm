@@ -12,15 +12,40 @@ def simple_generate(
     sampler: Callable[[mx.array], mx.array] | None,
 ) -> str:
     def _step(model, y):
-        pass
+        logits=model(y[None])
+        logits=logits[:,-1,:]
 
+        #转换成logprob
+        logprobs=logits-mx.logsumexp(logits,keepdims=True)
+
+        if sampler is None:
+            y=mx.argmax(logprobs,axis=-1)
+        else:
+            y=sampler(logprobs)
+        return y
+    
+    tokens=mx.array(tokenizer.encode(prompt,add_special_tokens=False))
+
+    detokenizer=tokenizer.detokenizer
+    detokenizer.reset()
+
+    while True:
+        token=_step(model,tokens)
+        mx.eval(token) #这里是MLX强制把这个token算出来 , 否则后面的token.item()拿不到数值
+
+        tokens=mx.concat([tokens,token])
+
+        if token.item()==tokenizer.eos_token_id:
+            break
+
+        detokenizer.add_token(token.item())
+        print(detokenizer.last_segment,end="",flush=True)
 
 def simple_generate_with_kv_cache(
     model: Qwen3ModelWeek2, tokenizer: TokenizerWrapper, prompt: str
 ) -> str:
     def _step(model, y, offset, kv_cache):
         pass
-
 
 def speculative_generate(
     draft_model: Qwen3ModelWeek2,
