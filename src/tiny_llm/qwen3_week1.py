@@ -25,14 +25,55 @@ class Qwen3MultiHeadAttention:
         theta: int = 1000000,
         rms_norm_eps: float = 1e-5,
     ):
-        pass
+        self.hidden_size=hidden_size
+        self.num_heads=num_heads
+        self.num_kv_heads=num_kv_heads
+        self.head_dim=head_dim
+        self.scale=mx.rsqrt(head_dim)
+
+        self.wq=wq
+        self.wk=wk
+        self.wv=wv
+        self.wo=wo
+
+        self.q_norm=q_norm
+        self.k_norm=k_norm
+        self.rms_norm_eps=rms_norm_eps
+
+        self.rope=RoPE(head_dim,max_seq_len,theta,traditional=False)
 
     def __call__(
         self,
         x: mx.array,
         mask: mx.array | str | None = None,
     ) -> mx.array:
-        pass
+        B,L,_=x.shape
+
+        q=linear(x,self.wq).reshape(B,L,self.num_heads,self.head_dim)
+        k=linear(x,self.wk).reshape(B,L,self.num_kv_heads,self.head_dim)
+        v=linear(x,self.wv).reshape(B,L,self.num_kv_heads,self.head_dim)
+
+        q=mx.fast.rms_norm(q,self.q_norm,eps=self.rms_norm_eps)
+        k=mx.fast.rms_norm(k,self.k_norm,eps=self.rms_norm_eps)
+
+        q=self.rope(q,offset=slice(0,L))
+        k=self.rope(k,offset=slice(0,L))
+
+        q=q.transpose(0,2,1,3)
+        k=k.transpose(0,2,1,3)
+        v=v.transpose(0,2,1,3)
+
+        out=scaled_dot_product_attention_grouped(
+            q.astype(mx.float32),
+            k.astype(mx.float32),
+            v.astype(mx.float32),
+            scale=self.scale,
+            mask=mask,
+        ).astype(x.dtype)
+
+        out=out.transpose(0,2,1,3).reshape(B,L,self.num_heads*self.head_dim)
+        return linear(out,self.wo)
+        
 
 
 class Qwen3MLP:
