@@ -73,14 +73,36 @@ def causal_mask(L: int, S: int, dtype: mx.Dtype) -> mx.array:
     pass
 
 
-def scaled_dot_product_attention_grouped(
+def scaled_dot_product_attention_grouped(  # k v 复用头
     query: mx.array,
     key: mx.array,
     value: mx.array,
     scale: float | None = None,
     mask: mx.array | str | None = None,
 ) -> mx.array:
-    pass
+    if scale is None:
+        scale=1.0/math.sqrt(query.shape[-1])
+
+    expected_shape=query.shape
+
+    *batch_dims,H_q,L,D=query.shape
+    H,S,_=key.shape[-3:]
+    n_repeats=H_q//H
+
+    query=query.reshape(*batch_dims,H,n_repeats,L,D)
+    key=key.reshape(*batch_dims,H,1,S,D)
+    value=value.reshape(*batch_dims,H,1,S,D)
+
+    scores=query@key.swapaxes(-1,-2) *scale
+
+    if mask is not None:
+        mask=mx.broadcast_to(mask,(*batch_dims,H_q,L,S))
+        mask=mask.reshape(*batch_dims,H,n_repeats,L,S)
+        scores=scores+mask
+
+    attention_weights=softmax(scores,axis=-1)
+    output=attention_weights@value
+    return output.reshape(expected_shape)
 
 
 def flash_attention(
