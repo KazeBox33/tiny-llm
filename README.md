@@ -1,59 +1,104 @@
-# tiny-llm - LLM Serving in a Week
+# Qwen3 Inference from Scratch
 
-[![CI (main)](https://github.com/skyzh/tiny-llm/actions/workflows/main.yml/badge.svg)](https://github.com/skyzh/tiny-llm/actions/workflows/main.yml)
+This repository records my implementation of a Qwen3-style LLM inference stack from low-level tensor operations. The goal is to understand how modern decoder-only LLM inference works by building the core components directly instead of only calling high-level model APIs.
 
-A course on LLM serving using MLX for system engineers. The codebase
-is solely (almost!) based on MLX array/matrix APIs without any high-level neural network APIs, so that we
-can build the model serving infrastructure from scratch and dig into the optimizations.
+The project is based on the excellent [skyzh/tiny-llm](https://github.com/skyzh/tiny-llm) course, with my own step-by-step implementation, notes, tests, and future experiments.
 
-The goal is to learn the techniques behind efficiently serving a large language model (e.g., Qwen3 models).
+## What This Project Covers
 
-In week 1, you will implement the necessary components in Python (only Python!) to use the Qwen3 model to generate responses (e.g., attention, RoPE, etc). In week 2, you will implement the inference system which is similar to but a much simpler version of vLLM (e.g., KV cache, continuous batching, flash attention, etc). In week 3, we will cover more advanced topics and how the model interacts with the outside world.
+Implemented so far:
 
-Why MLX: nowadays it's easier to get a macOS-based local development environment than setting up an NVIDIA GPU.
+- Basic matrix APIs used by the model path
+- Scaled dot-product attention
+- Multi-head attention
+- Rotary positional encoding, including Qwen3 non-traditional RoPE
+- Grouped Query Attention
+- Causal attention masking for both training-style and KV-cache-style shapes
+- Qwen3 attention block with Q/K RMSNorm and RoPE
+- RMSNorm with float32 accumulation
+- Numerically stable SiLU
+- Qwen3 SwiGLU MLP
 
-Why Qwen3: it keeps the dense decoder architecture small enough for a local MLX course while adding modern details such as QK norm and bfloat16 weights. The official MLX 4-bit model files also make the setup predictable on Apple Silicon.
+Planned next:
 
-## Book
+- Full Qwen3 transformer block
+- Token embedding and LM head path
+- Loading quantized Qwen3 MLX weights into the custom model
+- Text generation and sampling
+- KV cache, paged attention, continuous batching, and serving-oriented optimizations
 
-The tiny-llm book is available at [https://skyzh.github.io/tiny-llm/](https://skyzh.github.io/tiny-llm/). You can follow the guide and start building.
+## Why This Project
 
-## Community
+I am using this project to learn the internals of LLM inference:
 
-You may join skyzh's Discord server and study with the tiny-llm community.
+- How Q/K/V projections become attention heads
+- Why GQA reduces KV memory and bandwidth
+- How RoPE injects token position into Q/K vectors
+- Why causal masks differ between full prefill and cached decoding
+- Where low precision is safe and where float32 accumulation is useful
+- How Qwen3-style blocks combine RMSNorm, attention, residuals, and SwiGLU MLPs
 
-[![Join skyzh's Discord Server](book/src/discord-badge.svg)](https://skyzh.dev/join/discord)
+This is intended as a learning-oriented implementation that can grow into a compact inference engine.
 
-## Roadmap
+## Current Test Status
 
-Week 1 and 2 is complete. Week 3 is in progress.
+The completed Week 1 tasks pass locally:
 
-| Week + Chapter | Topic                                                       | Code | Test | Doc |
-| -------------- | ----------------------------------------------------------- | ---- | ---- | --- |
-| 1.1            | Attention                                                   | ✅    | ✅   | ✅  |
-| 1.2            | RoPE                                                        | ✅    | ✅   | ✅  |
-| 1.3            | Grouped Query Attention                                     | ✅    | ✅   | ✅  |
-| 1.4            | RMSNorm and MLP                                             | ✅    | ✅   | ✅  |
-| 1.5            | Load the Model                                              | ✅    | ✅   | ✅  |
-| 1.6            | Generate Responses (aka Decoding)                           | ✅    | ✅   | ✅  |
-| 1.7            | Sampling                                                    | ✅    | ✅   | ✅  |
-| 2.1            | Key-Value Cache                                             | ✅    | ✅   | ✅  |
-| 2.2            | Quantized Matmul and Linear - CPU                           | ✅    | ✅   | ✅  |
-| 2.3            | Quantized Matmul and Linear - GPU                           | ✅    | ✅   | ✅  |
-| 2.4            | Flash Attention 2 - CPU                                     | ✅    | ✅   | ✅  |
-| 2.5            | Flash Attention 2 - GPU                                     | ✅    | ✅   | ✅  |
-| 2.6            | Continuous Batching                                         | ✅    | ✅   | ✅  |
-| 2.7            | Chunked Prefill                                             | ✅    | ✅   | ✅  |
-| 3.1            | Paged Attention - Part 1                                    | ✅    | ✅   | 🚧  |
-| 3.2            | Paged Attention - Part 2                                    | ✅    | ✅   | 🚧  |
-| 3.3            | MoE (Mixture of Experts)                                    | ✅    | ✅   | 🚧  |
-| 3.4            | Speculative Decoding                                        | 🚧    | ✅   | 🚧  |
-| 3.5            | RAG Pipeline                                                | 🚧    | 🚧   | 🚧  |
-| 3.6            | AI Agent     / Tool Calling                                 | 🚧    | 🚧   | 🚧  |
-| 3.7            | Long Context                                                | 🚧    | 🚧   | 🚧  |
+```bash
+pdm run test --week 1 --day 1
+pdm run test --week 1 --day 2
+pdm run test --week 1 --day 3
+pdm run test --week 1 --day 4
+```
 
-Other topics not covered: quantized/compressed kv cache, prefix/prompt cache; sampling, fine tuning; smaller kernels (softmax, silu, etc)
+Recent local results:
 
-## Star History
+```text
+Week 1 Day 3: 60 passed
+Week 1 Day 4: 22 passed
+```
 
-[![Star History Chart](https://api.star-history.com/svg?repos=skyzh/tiny-llm&type=Date)](https://www.star-history.com/#skyzh/tiny-llm&Date)
+## Setup
+
+Install dependencies:
+
+```bash
+pdm install
+```
+
+Check the environment:
+
+```bash
+pdm run check-installation
+```
+
+Run tests for a specific chapter:
+
+```bash
+pdm run test --week 1 --day 4
+```
+
+## Repository Layout
+
+```text
+src/tiny_llm/
+  attention.py              attention, GQA, causal mask
+  positional_encoding.py    RoPE
+  layer_norm.py             RMSNorm
+  basics.py                 linear, softmax, SiLU
+  qwen3_week1.py            Qwen3 attention, MLP, transformer/model path
+```
+
+Reference implementations and tests from the course are kept in:
+
+```text
+src/tiny_llm_ref/
+tests_refsol/
+book/
+```
+
+## Attribution
+
+This project is built while following [tiny-llm - LLM Serving in a Week](https://skyzh.github.io/tiny-llm/) by skyzh. The original course repository is [skyzh/tiny-llm](https://github.com/skyzh/tiny-llm).
+
+My work in this repository focuses on implementing, understanding, testing, and documenting the inference components step by step.
