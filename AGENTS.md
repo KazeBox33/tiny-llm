@@ -29,6 +29,14 @@
   6. run the smallest matching test.
 - When code is shown, explain each important line's purpose, tensor shape expectations, dtype/precision behavior, and where data moves between CPU/GPU/MLX arrays.
 - For inference-system topics such as KV cache, batching, quantization, FlashAttention, paged attention, and MoE, emphasize the engineering tradeoff: memory layout, compute reuse, latency, throughput, and correctness.
+- From Week 2 onward, treat the project as an AI infrastructure learning project, not only a model-implementation project. Before generating or editing code for AI infra topics, first provide a professional teaching block that includes:
+  - the production problem being solved, such as repeated prefill computation, decode latency, memory bandwidth limits, GPU/Metal utilization, request scheduling, or KV cache fragmentation,
+  - a concrete example with small token sequences, tensor shapes, or simplified request queues,
+  - how the idea differs from the learner's CS336 training-focused implementation,
+  - the key performance/correctness metrics involved, such as latency, throughput, memory traffic, memory footprint, cache reuse, numerical precision, or batching efficiency,
+  - the exact files, functions, and tests that the upcoming code will touch.
+- For every AI infra implementation step, explain the intended data flow before code: where tensors live, how shapes change, what is cached or materialized, what is recomputed or avoided, and why the implementation helps inference.
+- Keep examples concrete. Prefer examples like "prompt length 6, decode one token, cached K/V length becomes 7" or "three requests with different prompt lengths enter continuous batching" over abstract descriptions alone.
 - If a task needs implementation by the agent, keep edits scoped to the chapter/task files and preserve the course's intended structure. Avoid writing real implementations inside test adapters or reference-solution files.
 - Record meaningful experiments, performance observations, debugging lessons, and optimization points in a durable Markdown file when they are useful for later review or resume writing.
 - Prefer comparing with the CS336 codebase when helpful, but avoid mixing CS336 training code into tiny-llm unless the learner explicitly asks for a cross-project note.
