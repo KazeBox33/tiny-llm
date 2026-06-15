@@ -95,10 +95,16 @@ class Qwen3MLP:
         w_up: QuantizedWeights,
         w_down: QuantizedWeights,
     ):
-        pass
+        self.dim=dim
+        self.hidden_dim=hidden_dim
+        self.w_gate=dequantize_linear(w_gate)
+        self.w_up=dequantize_linear(w_up)
+        self.w_down=dequantize_linear(w_down)
 
     def __call__(self, x: mx.array) -> mx.array:
-        pass
+        gate=silu(linear(x,self.w_gate))
+        up=linear(x,self.w_up)
+        return linear(gate*up,self.w_down)
 
 
 class Qwen3TransformerBlock:
