@@ -199,7 +199,58 @@ class Qwen3ModelWeek2:
         enable_flash_attn: bool = False,
     ):
         self.num_hidden_layers = mlx_model.args.num_hidden_layers
-        pass
+        self.hidden_size=mlx_model.args.hidden_size
+        self.vocab_size=mlx_model.args.vocab_size
+        self.precision=mx.bfloat16
+
+        self.embedding=Embedding(
+            vocab_size=self.vocab_size,
+            embedding_dim=self.hidden_size,
+            weight=dequantize_linear(mlx_model.model.embed_tokens),
+        )
+
+        self.layers_inner=[]
+
+        for i in range(mlx_model.args.num_hidden_layers):
+            layer = Qwen3TransformerBlock(
+                num_attention_heads=mlx_model.args.num_attention_heads,
+                num_kv_heads=mlx_model.args.num_key_value_heads,
+                hidden_size=mlx_model.args.hidden_size,
+                head_dim=mlx_model.args.head_dim,
+                intermediate_size=mlx_model.args.intermediate_size,
+                rms_norm_eps=mlx_model.args.rms_norm_eps,
+                wq=QuantizedWeights.from_mlx_layer(mlx_model.model.layers[i].self_attn.q_proj),
+                wk=QuantizedWeights.from_mlx_layer(mlx_model.model.layers[i].self_attn.k_proj),
+                wv=QuantizedWeights.from_mlx_layer(mlx_model.model.layers[i].self_attn.v_proj),
+                wo=QuantizedWeights.from_mlx_layer(mlx_model.model.layers[i].self_attn.o_proj),
+                q_norm=mlx_model.model.layers[i].self_attn.q_norm.weight,
+                k_norm=mlx_model.model.layers[i].self_attn.k_norm.weight,
+                w_gate=QuantizedWeights.from_mlx_layer(mlx_model.model.layers[i].mlp.gate_proj),
+                w_up=QuantizedWeights.from_mlx_layer(mlx_model.model.layers[i].mlp.up_proj),
+                w_down=QuantizedWeights.from_mlx_layer(mlx_model.model.layers[i].mlp.down_proj),
+                w_input_layernorm=mlx_model.model.layers[i].input_layernorm.weight,
+                w_post_attention_layernorm=mlx_model.model.layers[
+                    i
+                ].post_attention_layernorm.weight,
+                max_seq_len=mlx_model.args.max_position_embeddings,
+                theta=mlx_model.args.rope_theta,
+                use_flash_attention=enable_flash_attn,
+            )
+
+            self.layers_inner.append(layer)
+
+        self.norm=RMSNorm(
+            self.hidden_size,
+            weight=mlx_model.model.norm.weight,
+            eps=mlx_model.args.rms_norm_eps ,
+        )
+
+        if mlx_model.args.tie_word_embeddings:
+            self.w_lm_head=None
+        else:
+            self.w_lm_head=dequantize_linear(mlx_model.lm_head)
+
+        self.mlx_model=mlx_model
 
     def __call__(
         self,
@@ -207,4 +258,16 @@ class Qwen3ModelWeek2:
         offset: int,
         cache: list[TinyKvCache],
     ) -> mx.array:
-        pass
+        h=self.embedding(inputs)
+
+        mask="causal" if inputs.shape[-1]>1 else None
+
+        for layer,layer_cache in zip(self.layers_inner,cache):
+            h=layer(h,offset,layer_cache,mask=mask)
+
+        h=self.norm(h)
+
+        if self.w_lm_head is not None:
+            return linear(h,self.w_lm_head)
+
+        return self.embedding.as_linear(h)
