@@ -63,4 +63,21 @@ class TinyKvFullCache(TinyKvCache):
         mask_length: int | None = None,
         mask: mx.array | str | None = None,
     ) -> tuple[mx.array, mx.array, int, Optional[mx.array]]:
-        pass
+        assert key.shape==value.shape
+        B,H,S,D=key.shape
+
+        if self.key_values is None:
+            assert self.offset==0
+            self.key_values=(key,value)
+            self.offset=S
+            return key,value,self.offset,mask
+
+        prev_key,prev_value=self.key_values
+        assert prev_key.shape==(B,H,self.offset,D)
+        assert prev_value.shape==(B,H,self.offset,D)
+
+        key=mx.concat([prev_key,key],axis=2)
+        value=mx.concat([prev_value,value],axis=2)
+        self.key_values=(key,value)
+        self.offset+=S
+        return key,value,self.offset,mask
