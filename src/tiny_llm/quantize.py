@@ -24,13 +24,13 @@ class QuantizedWeights:
     ):
         self.scales = scales
         self.biases = biases
-        self.group_size = group_size
-        self.bits = bits
+        self.group_size = group_size  # 这个项目里 128个权重共用一组 scale/bias
+        self.bits = bits  # 表示每个量化值用多少bit
         self.weight = weight
 
     @staticmethod
     def from_mlx_layer(mlx_layer: Any) -> "QuantizedWeights":
-        return QuantizedWeights(
+        return QuantizedWeights(  # 从已经加载好的量化层面提取出量化权重信息
             scales=mlx_layer.scales,
             biases=mlx_layer.biases,
             group_size=mlx_layer.group_size,
@@ -56,4 +56,17 @@ def quantized_linear(
     w: QuantizedWeights,
     bias: mx.array | None = None,
 ) -> mx.array:
-    pass
+    output = quantized_matmul(
+        scales=w.scales,
+        biases=w.biases,
+        group_size=w.group_size,
+        bits=w.bits,
+        a=x,
+        b=w.weight,
+        transpose_b=True,
+    )
+
+    if bias is not None:
+        output = output + bias
+
+    return output

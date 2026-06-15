@@ -1,6 +1,7 @@
 import mlx.core as mx
-from .quantize import QuantizedWeights
+from .quantize import QuantizedWeights, quantized_linear
 from .basics import linear
+
 
 class Embedding:
     def __init__(self, vocab_size: int, embedding_dim: int, weight: mx.array):
@@ -9,18 +10,26 @@ class Embedding:
         self.weight=weight
 
     def __call__(self, x: mx.array) -> mx.array:
-        return self.weight[x,:]
+        return self.weight[x, :]
 
     def as_linear(self, x: mx.array) -> mx.array:
-        return linear(x,self.weight)
+        return linear(x, self.weight)
 
 
 class QuantizedEmbedding:
     def __init__(self, vocab_size: int, embedding_dim: int, weight: QuantizedWeights):
-        pass
+        self.vocab_size=vocab_size
+        self.embedding_dim=embedding_dim
+        self.weight=weight
 
     def __call__(self, x: mx.array) -> mx.array:
-        pass
+        return mx.dequantize(
+            self.weight.weight[x, :],
+            self.weight.scales[x, :],
+            self.weight.biases[x, :],
+            self.weight.group_size,
+            self.weight.bits,
+        )
 
     def as_linear(self, x: mx.array) -> mx.array:
-        pass
+        return quantized_linear(x, self.weight)
