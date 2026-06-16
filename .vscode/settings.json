@@ -1,3 +1,13 @@
 {
-    "cmake.ignoreCMakeListsMissing": true
+    "cmake.ignoreCMakeListsMissing": true,
+    "clangd.path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clangd",
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}/src/extensions/build/tiny_llm_ext._ext",
+        "--background-index",
+        "--clang-tidy"
+    ],
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "files.associations": {
+        "*.metal": "cpp"
+    }
 }

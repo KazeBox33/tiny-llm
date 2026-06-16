@@ -9,7 +9,7 @@
 namespace nb = nanobind;
 using namespace nb::literals;
 
-NB_MODULE(_ext, m) {
+NB_MODULE(_ext, m) { //创建python模块
     m.doc() = "tiny-llm extensions for MLX";
 
     m.def("load_library", &tiny_llm_ext::load_library, "device"_a, "path"_a);
@@ -31,4 +31,17 @@ NB_MODULE(_ext, m) {
         Returns:
             array: ``alpha * x + beta * y``
       )");
+
+     m.def(
+        "quantized_matmul",
+        &tiny_llm_ext::quantized_matmul,
+        "scales"_a,
+        "biases"_a,
+        "group_size"_a,
+        "bits"_a,
+        "a"_a,
+        "b"_a,
+        "transpose_b"_a = false,
+        "stream"_a = nb::none()
+);
 }
