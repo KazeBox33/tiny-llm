@@ -1,6 +1,8 @@
 import mlx.core as mx
 from typing import Any
 
+from extensions import tiny_llm_ext
+
 
 def dequantize_linear(mx_layer: Any) -> mx.array:
     w = mx.dequantize(
@@ -16,7 +18,7 @@ def dequantize_linear(mx_layer: Any) -> mx.array:
 class QuantizedWeights:
     def __init__(
         self,
-        scales: mx.array,
+        scales: mx.array, #八个权重公用一个int32
         biases: mx.array,
         group_size: int,
         bits: int,
@@ -48,7 +50,21 @@ def quantized_matmul(
     b: mx.array,
     transpose_b: bool = False,
 ) -> mx.array:
-    pass
+    *batch_dims, hidden_dim = a.shape
+    a = a.reshape(-1, hidden_dim)
+    scales = mx.contiguous(scales)
+    biases = mx.contiguous(biases)
+    a = mx.contiguous(a)
+    b = mx.contiguous(b)
+    return tiny_llm_ext.quantized_matmul(
+        scales,
+        biases,
+        group_size,
+        bits,
+        a,
+        b,
+        transpose_b,
+    ).reshape(*batch_dims, -1)
 
 
 def quantized_linear(

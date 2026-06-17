@@ -106,6 +106,39 @@ Resume bullet draft:
 
 - Built quantized embedding and linear wrappers for 4-bit Qwen3 weights, preparing a fused dequantization + matmul path for memory-bandwidth-efficient inference.
 
+### Week 2 Day 2: CPU Quantized Matmul Primitive
+
+Implemented the CPU version of the custom MLX `quantized_matmul` primitive:
+
+- added a C++ CPU implementation for fused int4 unpacking, dequantization, and matrix multiplication,
+- wired the Python `quantized_matmul` wrapper to the C++ extension,
+- flattened batched inputs to 2D before calling the extension and reshaped outputs back,
+- supported both `float16` and `bfloat16` output paths,
+- accumulated products in `float` before casting back to the output dtype.
+
+Why it matters:
+
+- This avoids materializing the full dequantized weight matrix in Python.
+- The CPU implementation establishes a correctness baseline for the later Metal/GPU kernel.
+- The same packed-weight math will be reused in the GPU implementation, where the memory-bandwidth benefit matters most.
+
+Correctness checks:
+
+```bash
+DEBUG=0 pdm run build-ext
+DEBUG=0 pdm run test --week 2 --day 2 -- -k task_2
+```
+
+Result:
+
+```text
+4 passed, 4 deselected
+```
+
+Resume bullet draft:
+
+- Implemented a custom MLX C++ quantized matmul primitive for Qwen3 4-bit weights, fusing int4 unpacking, group-wise dequantization, and CPU matrix multiplication with fp16/bf16 support.
+
 ### Local C++ / Metal Extension Environment
 
 Configured local development environment for MLX custom extensions:
@@ -192,7 +225,7 @@ Add concrete benchmark data here as we implement more kernels:
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Week 1 baseline | TODO | Qwen3-0.6B-MLX-4bit | Apple Silicon | TODO | TODO | TODO | no KV cache |
 | Week 2 KV cache | TODO | Qwen3-0.6B-MLX-4bit | Apple Silicon | TODO | TODO | TODO | with KV cache |
-| Quantized matmul CPU | TODO | Qwen3-0.6B-MLX-4bit | Apple Silicon | TODO | TODO | TODO | C++ CPU primitive |
+| Quantized matmul CPU | `DEBUG=0 pdm run test --week 2 --day 2 -- -k task_2` | Qwen3-0.6B-MLX-4bit | Apple Silicon CPU | unit test tensors | n/a | n/a | 4 official CPU tests passed |
 | Quantized matmul Metal | TODO | Qwen3-0.6B-MLX-4bit | Apple Silicon | TODO | TODO | TODO | fused GPU kernel |
 
 ## Resume Bullets To Refine Later
