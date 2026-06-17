@@ -139,6 +139,41 @@ Resume bullet draft:
 
 - Implemented a custom MLX C++ quantized matmul primitive for Qwen3 4-bit weights, fusing int4 unpacking, group-wise dequantization, and CPU matrix multiplication with fp16/bf16 support.
 
+### Week 2 Day 3: Metal GPU Quantized Matmul Kernel
+
+Implemented the GPU version of the custom `quantized_matmul` primitive:
+
+- added a Metal kernel for Qwen3 4-bit packed weights,
+- used one GPU thread per output matrix element,
+- unpacked eight int4 weights from each packed `uint32`,
+- applied group-wise `scale` and `bias` inside the kernel,
+- accumulated products in `float` and cast back to `float16` / `bfloat16`,
+- wired `QuantizedMatmul::eval_gpu` to dispatch the Metal kernel through MLX's command encoder,
+- registered the new `.metal` file in the extension build system.
+
+Why it matters:
+
+- This keeps weights compressed while computing, preserving the memory-bandwidth advantage of 4-bit inference.
+- The CPU implementation was a correctness baseline; the Metal implementation moves the same fused dequantization + matmul work onto Apple GPU.
+- This is the first project step that connects Python model code, C++ MLX primitive dispatch, and a custom GPU kernel.
+
+Correctness checks:
+
+```bash
+DEBUG=0 pdm run build-ext
+DEBUG=0 pdm run test --week 2 --day 2 -- -k task_3
+```
+
+Result:
+
+```text
+4 passed, 4 deselected
+```
+
+Resume bullet draft:
+
+- Implemented a custom Metal kernel for 4-bit Qwen3 quantized matmul, fusing int4 unpacking, group-wise dequantization, and fp16/bf16 GPU accumulation through an MLX C++ primitive.
+
 ### Local C++ / Metal Extension Environment
 
 Configured local development environment for MLX custom extensions:

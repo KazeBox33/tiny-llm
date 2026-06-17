@@ -8,6 +8,10 @@
 #include "mlx/backend/cpu/encoder.h"
 #include "mlx/utils.h"
 
+#ifdef _METAL_
+#include "mlx/backend/metal/device.h"
+#endif
+
 namespace tiny_llm_ext {
 
 mx::array quantized_matmul(
@@ -171,7 +175,81 @@ void QuantizedMatmul::eval_gpu(
     const std::vector<mx::array> &inputs,
     std::vector<mx::array> &outputs
 ) {
-    throw std::runtime_error("QuantizedMatmul GPU implementation is not implemented yet");
+#ifdef _METAL_
+    auto &scales = inputs[0];
+    auto &biases = inputs[1];
+    auto &a = inputs[2];
+    auto &b = inputs[3];
+    auto &out = outputs[0];
+
+    if (!a.flags().row_contiguous) {
+        throw std::runtime_error("quantized_matmul: a must be contiguous");
+    }
+    if (!b.flags().row_contiguous) {
+        throw std::runtime_error("quantized_matmul: b must be contiguous");
+    }
+
+    const int M = a.shape()[0];
+    const int N = a.shape()[1];
+    const int K = b.shape()[0];
+
+    if (N % group_size_ != 0) {
+        throw std::runtime_error("quantized_matmul: N must be divisible by group_size");
+    }
+
+    auto &s = stream();
+    auto &d = mx::metal::device(s.device);
+    out.set_data(mx::allocator::malloc(out.nbytes()));
+
+    auto library = d.get_library("tiny_llm_ext");
+    const char *kernel_name = nullptr;
+    if (out.dtype() == mx::float16) {
+        kernel_name = "quantized_matmul_w4a16_g128_f16";
+    } else if (out.dtype() == mx::bfloat16) {
+        kernel_name = "quantized_matmul_w4a16_g128_bf16";
+    } else {
+        throw std::runtime_error("QuantizedMatmul GPU only supports float16 and bfloat16");
+    }
+    auto kernel = d.get_kernel(kernel_name, library);
+
+    auto &compute_encoder = d.get_command_encoder(s.index);
+    compute_encoder.set_compute_pipeline_state(kernel);
+
+    compute_encoder.set_input_array(scales, 0);
+    compute_encoder.set_input_array(biases, 1);
+    compute_encoder.set_input_array(a, 2);
+    compute_encoder.set_input_array(b, 3);
+    compute_encoder.set_output_array(out, 4);
+
+    compute_encoder.set_bytes(M, 5);
+    compute_encoder.set_bytes(N, 6);
+    compute_encoder.set_bytes(K, 7);
+
+    size_t tgp_size = kernel->maxTotalThreadsPerThreadgroup();
+    int x_size = 32;
+    if (M <= 1) {
+        x_size = 1;
+    } else if (M <= 2) {
+        x_size = 2;
+    } else if (M <= 4) {
+        x_size = 4;
+    } else if (M <= 8) {
+        x_size = 8;
+    } else if (M <= 16) {
+        x_size = 16;
+    }
+    int y_size = static_cast<int>(tgp_size) / x_size;
+
+    MTL::Size num_threadgroups = MTL::Size(
+        (M + x_size - 1) / x_size,
+        (K + y_size - 1) / y_size,
+        1
+    );
+    MTL::Size threads_per_threadgroup = MTL::Size(x_size, y_size, 1);
+    compute_encoder.dispatch_threadgroups(num_threadgroups, threads_per_threadgroup);
+#else
+    throw std::runtime_error("QuantizedMatmul has no GPU implementation.");
+#endif
 }
 
 bool QuantizedMatmul::is_equivalent(const mx::Primitive &other) const {
