@@ -8,6 +8,6 @@
     ],
     "C_Cpp.intelliSenseEngine": "disabled",
     "files.associations": {
-        "*.metal": "cpp"
+        "*.metal": "metal"
     }
 }

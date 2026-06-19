@@ -203,7 +203,7 @@ void QuantizedMatmul::eval_gpu(
 
     auto library = d.get_library("tiny_llm_ext");
     const char *kernel_name = nullptr;
-    if (out.dtype() == mx::float16) {
+    if (out.dtype() == mx::float16) { //根据dtype选择kernel
         kernel_name = "quantized_matmul_w4a16_g128_f16";
     } else if (out.dtype() == mx::bfloat16) {
         kernel_name = "quantized_matmul_w4a16_g128_bf16";
@@ -225,7 +225,7 @@ void QuantizedMatmul::eval_gpu(
     compute_encoder.set_bytes(N, 6);
     compute_encoder.set_bytes(K, 7);
 
-    size_t tgp_size = kernel->maxTotalThreadsPerThreadgroup();
+    size_t tgp_size = kernel->maxTotalThreadsPerThreadgroup();  //获取一个threadgroup最多能放多少线程 
     int x_size = 32;
     if (M <= 1) {
         x_size = 1;

@@ -64,7 +64,7 @@ def quantized_matmul(
         a,
         b,
         transpose_b,
-    ).reshape(*batch_dims, -1)
+    ).reshape(*batch_dims, -1) #reshape 为-1表示自己推断
 
 
 def quantized_linear(
