@@ -1,11 +1,11 @@
 import mlx.core as mx
-from .basics import silu,linear
+from .basics import silu
 from .attention import scaled_dot_product_attention_grouped
 from .layer_norm import RMSNorm
 from .positional_encoding import RoPE
 from typing import Any
-from .embedding import Embedding
-from .quantize import dequantize_linear, QuantizedWeights
+from .embedding import QuantizedEmbedding
+from .quantize import QuantizedWeights, quantized_linear
 from .kv_cache import TinyKvCache
 
 
@@ -33,10 +33,10 @@ class Qwen3MultiHeadAttention:
         self.head_dim=head_dim
         self.scale=mx.rsqrt(head_dim)
 
-        self.wq=dequantize_linear(wq)
-        self.wk=dequantize_linear(wk)
-        self.wv=dequantize_linear(wv)
-        self.wo=dequantize_linear(wo)
+        self.wq=wq
+        self.wk=wk
+        self.wv=wv
+        self.wo=wo
 
         self.q_norm=RMSNorm(head_dim,q_norm,eps=rms_norm_eps)
         self.k_norm=RMSNorm(head_dim,k_norm,eps=rms_norm_eps)
@@ -53,9 +53,9 @@ class Qwen3MultiHeadAttention:
     ) -> mx.array:
         B,L,_=x.shape
 
-        q=linear(x,self.wq).reshape(B,L,self.num_heads,self.head_dim)
-        k=linear(x,self.wk).reshape(B,L,self.num_kv_heads,self.head_dim)
-        v=linear(x,self.wv).reshape(B,L,self.num_kv_heads,self.head_dim)
+        q=quantized_linear(x,self.wq).reshape(B,L,self.num_heads,self.head_dim)
+        k=quantized_linear(x,self.wk).reshape(B,L,self.num_kv_heads,self.head_dim)
+        v=quantized_linear(x,self.wv).reshape(B,L,self.num_kv_heads,self.head_dim)
 
         q=self.q_norm(q)
         k=self.k_norm(k)
@@ -83,7 +83,7 @@ class Qwen3MultiHeadAttention:
         ).astype(x.dtype)
 
         out=out.transpose(0,2,1,3).reshape(B,L,self.num_heads*self.head_dim)
-        return linear(out,self.wo)
+        return quantized_linear(out,self.wo)
 
 
 class Qwen3MLP:
@@ -97,14 +97,14 @@ class Qwen3MLP:
     ):
         self.dim=dim
         self.hidden_dim=hidden_dim
-        self.w_gate=dequantize_linear(w_gate)
-        self.w_up=dequantize_linear(w_up)
-        self.w_down=dequantize_linear(w_down)
+        self.w_gate=w_gate
+        self.w_up=w_up
+        self.w_down=w_down
 
     def __call__(self, x: mx.array) -> mx.array:
-        gate=silu(linear(x,self.w_gate))
-        up=linear(x,self.w_up)
-        return linear(gate*up,self.w_down)
+        gate=silu(quantized_linear(x,self.w_gate))
+        up=quantized_linear(x,self.w_up)
+        return quantized_linear(gate*up,self.w_down)
 
 
 class Qwen3TransformerBlock:
@@ -203,10 +203,10 @@ class Qwen3ModelWeek2:
         self.vocab_size=mlx_model.args.vocab_size
         self.precision=mx.bfloat16
 
-        self.embedding=Embedding(
+        self.embedding=QuantizedEmbedding(
             vocab_size=self.vocab_size,
             embedding_dim=self.hidden_size,
-            weight=dequantize_linear(mlx_model.model.embed_tokens),
+            weight=QuantizedWeights.from_mlx_layer(mlx_model.model.embed_tokens),
         )
 
         self.layers_inner=[]
@@ -248,7 +248,7 @@ class Qwen3ModelWeek2:
         if mlx_model.args.tie_word_embeddings:
             self.w_lm_head=None
         else:
-            self.w_lm_head=dequantize_linear(mlx_model.lm_head)
+            self.w_lm_head=QuantizedWeights.from_mlx_layer(mlx_model.lm_head)
 
         self.mlx_model=mlx_model
 
@@ -268,6 +268,6 @@ class Qwen3ModelWeek2:
         h=self.norm(h)
 
         if self.w_lm_head is not None:
-            return linear(h,self.w_lm_head)
+            return quantized_linear(h,self.w_lm_head)
 
         return self.embedding.as_linear(h)

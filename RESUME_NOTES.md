@@ -174,6 +174,41 @@ Resume bullet draft:
 
 - Implemented a custom Metal kernel for 4-bit Qwen3 quantized matmul, fusing int4 unpacking, group-wise dequantization, and fp16/bf16 GPU accumulation through an MLX C++ primitive.
 
+### Week 2 Day 3: End-to-End Quantized Qwen3 Integration
+
+Integrated the custom quantized matmul path into the Week 2 Qwen3 model:
+
+- kept attention projection weights (`q_proj`, `k_proj`, `v_proj`, `o_proj`) as `QuantizedWeights`,
+- kept MLP projection weights (`gate_proj`, `up_proj`, `down_proj`) as `QuantizedWeights`,
+- replaced ordinary `linear(...)` calls with `quantized_linear(...)`,
+- switched token embedding to `QuantizedEmbedding`,
+- kept `lm_head` as a quantized projection and dispatched it through `quantized_linear`,
+- removed the Week 2 model path's full-weight `dequantize_linear(...)` usage.
+
+Why it matters:
+
+- This changes the model from a "load quantized weights, then immediately dequantize them" path to an actual compressed-weight inference path.
+- The custom Metal quantized matmul is now used by real Qwen3 inference layers rather than only standalone unit tests.
+- It preserves the memory-bandwidth advantage of packed 4-bit weights across attention, MLP, embedding, and logits projection paths.
+
+Correctness checks:
+
+```bash
+DEBUG=0 pdm run test --week 2 --day 2
+pdm run main --solution tiny_llm --loader week2 --model qwen3-0.6b --prompt "Say hi."
+```
+
+Result:
+
+```text
+8 passed
+Hello! How can I assist you today? 😊
+```
+
+Resume bullet draft:
+
+- Integrated a fused 4-bit quantized matmul kernel end-to-end into Qwen3 inference, replacing full-weight dequantization in attention, MLP, embedding, and LM head paths with packed-weight quantized execution.
+
 ### Local C++ / Metal Extension Environment
 
 Configured local development environment for MLX custom extensions:
