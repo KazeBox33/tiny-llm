@@ -292,7 +292,7 @@ Performance impact:
 Detailed benchmark report:
 
 ```text
-benchmarks/QUANTIZED_LINEAR_BENCHMARK.md
+project-notes/benchmarks/QUANTIZED_LINEAR_BENCHMARK.md
 ```
 
 Raw reproducible outputs:
@@ -450,7 +450,7 @@ Honest conclusion:
 
 ## Open Items
 
-- Continue performance work from `OPTIMIZATION_BACKLOG.md`.
+- Continue performance work from `project-notes/optimization/OPTIMIZATION_BACKLOG.md`.
 - Optimize large-`M` quantized matmul with a cooperative/tiled Metal kernel.
 - Benchmark more prompt/output length combinations and batch sizes.
 - Continue Week 2 FlashAttention and batching tasks.

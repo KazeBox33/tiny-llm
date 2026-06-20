@@ -97,6 +97,15 @@ tests_refsol/
 book/
 ```
 
+Project notes written during implementation are organized in:
+
+```text
+project-notes/
+  resume/          resume-ready summaries and measurable results
+  benchmarks/      benchmark reports and performance interpretation
+  optimization/    future optimization backlog and bottleneck analysis
+```
+
 ## Attribution
 
 This project is built while following [tiny-llm - LLM Serving in a Week](https://skyzh.github.io/tiny-llm/) by skyzh. The original course repository is [skyzh/tiny-llm](https://github.com/skyzh/tiny-llm).

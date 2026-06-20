@@ -8,7 +8,7 @@ It is intentionally written as an engineering handoff: after finishing the remai
 
 Benchmark source:
 
-- `benchmarks/QUANTIZED_LINEAR_BENCHMARK.md`
+- `project-notes/benchmarks/QUANTIZED_LINEAR_BENCHMARK.md`
 - `benchmarks/quantized_vs_dequantized_inference_qwen3_0_6b.json`
 - `benchmarks/quantized_linear_qwen3_0_6b_metal.json`
 
