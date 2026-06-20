@@ -450,7 +450,8 @@ Honest conclusion:
 
 ## Open Items
 
-- Optimize large-`M` quantized matmul with a tiled/threadgroup-memory/SIMD-reduction Metal kernel.
+- Continue performance work from `OPTIMIZATION_BACKLOG.md`.
+- Optimize large-`M` quantized matmul with a cooperative/tiled Metal kernel.
 - Benchmark more prompt/output length combinations and batch sizes.
 - Continue Week 2 FlashAttention and batching tasks.
 - Add Week 3 paged attention / MoE notes after implementation.
