@@ -1,0 +1,10 @@
+STATUS: Resolving packages from lockfile...
+Solution=tiny_llm Loader=week2 Device=gpu Model=Qwen/Qwen3-0.6B-MLX-4bit FlashAttn=False
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Fetching 7 files: 100%|██████████| 7/7 [00:00<00:00, 74518.09it/s]
+Warmup runs: 1
+Warmup:   0%|          | 0/1 [00:00<?, ?it/s]Warmup: 100%|██████████| 1/1 [00:00<00:00,  1.37it/s]                                                     Bench:   0%|          | 0/1 [00:00<?, ?it/s]Bench: 100%|██████████| 1/1 [00:00<00:00,  1.54it/s]Bench: 100%|██████████| 1/1 [00:00<00:00,  1.54it/s, out_tok/s=49.3, decode_tok/s=60.4]Bench: 100%|██████████| 1/1 [00:00<00:00,  1.54it/s, out_tok/s=49.3, decode_tok/s=60.4]
+Requests: 1, Prompt tokens: 64, Generated tokens: 32
+Time: 0.65s, Output throughput: 49.25 tok/s
+Total throughput (prompt+output): 147.76 tok/s
+Prefill throughput: 470.13 tok/s
+Decode throughput: 60.40 tok/s

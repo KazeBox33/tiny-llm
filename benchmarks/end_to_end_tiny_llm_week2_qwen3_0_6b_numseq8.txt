@@ -1,0 +1,10 @@
+STATUS: Resolving packages from lockfile...
+Solution=tiny_llm Loader=week2 Device=gpu Model=Qwen/Qwen3-0.6B-MLX-4bit FlashAttn=False
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Fetching 7 files: 100%|██████████| 7/7 [00:00<00:00, 76858.97it/s]
+Warmup runs: 1
+Warmup:   0%|          | 0/1 [00:00<?, ?it/s]Warmup: 100%|██████████| 1/1 [00:00<00:00,  1.47it/s]                                                     Bench:   0%|          | 0/8 [00:00<?, ?it/s]Bench:  12%|█▎        | 1/8 [00:00<00:04,  1.52it/s]Bench:  12%|█▎        | 1/8 [00:00<00:04,  1.52it/s, out_tok/s=48.6, decode_tok/s=59.8]Bench:  25%|██▌       | 2/8 [00:01<00:04,  1.47it/s, out_tok/s=48.6, decode_tok/s=59.8]Bench:  25%|██▌       | 2/8 [00:01<00:04,  1.47it/s, out_tok/s=47.3, decode_tok/s=57.6]Bench:  38%|███▊      | 3/8 [00:02<00:03,  1.45it/s, out_tok/s=47.3, decode_tok/s=57.6]Bench:  38%|███▊      | 3/8 [00:02<00:03,  1.45it/s, out_tok/s=46.8, decode_tok/s=56.0]Bench:  50%|█████     | 4/8 [00:02<00:02,  1.48it/s, out_tok/s=46.8, decode_tok/s=56.0]Bench:  50%|█████     | 4/8 [00:02<00:02,  1.48it/s, out_tok/s=47.3, decode_tok/s=57.0]Bench:  62%|██████▎   | 5/8 [00:03<00:01,  1.50it/s, out_tok/s=47.3, decode_tok/s=57.0]Bench:  62%|██████▎   | 5/8 [00:03<00:01,  1.50it/s, out_tok/s=47.7, decode_tok/s=57.6]Bench:  75%|███████▌  | 6/8 [00:04<00:01,  1.51it/s, out_tok/s=47.7, decode_tok/s=57.6]Bench:  75%|███████▌  | 6/8 [00:04<00:01,  1.51it/s, out_tok/s=47.9, decode_tok/s=57.9]Bench:  88%|████████▊ | 7/8 [00:04<00:00,  1.52it/s, out_tok/s=47.9, decode_tok/s=57.9]Bench:  88%|████████▊ | 7/8 [00:04<00:00,  1.52it/s, out_tok/s=48.0, decode_tok/s=58.1]Bench: 100%|██████████| 8/8 [00:05<00:00,  1.49it/s, out_tok/s=48.0, decode_tok/s=58.1]Bench: 100%|██████████| 8/8 [00:05<00:00,  1.49it/s, out_tok/s=47.8, decode_tok/s=57.8]Bench: 100%|██████████| 8/8 [00:05<00:00,  1.49it/s, out_tok/s=47.8, decode_tok/s=57.8]
+Requests: 8, Prompt tokens: 512, Generated tokens: 256
+Time: 5.36s, Output throughput: 47.77 tok/s
+Total throughput (prompt+output): 143.32 tok/s
+Prefill throughput: 481.90 tok/s
+Decode throughput: 57.76 tok/s

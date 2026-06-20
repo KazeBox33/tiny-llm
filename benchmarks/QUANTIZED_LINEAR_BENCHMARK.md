@@ -73,6 +73,21 @@ pdm bench --solution tiny_llm_ref --loader week2 --model qwen3-0.6b \
   --seed 0
 ```
 
+Additional pressure runs varied `num_seqs` while keeping input/output lengths fixed:
+
+```bash
+for solution in tiny_llm tiny_llm_ref; do
+  for n in 1 8; do
+    pdm bench --solution "$solution" --loader week2 --model qwen3-0.6b \
+      --num-seqs "$n" \
+      --min-input-len 64 --max-input-len 64 \
+      --min-output-len 32 --max-output-len 32 \
+      --warmup 1 \
+      --seed 0
+  done
+done
+```
+
 ## Isolated Linear Results
 
 Median latency is reported in milliseconds. Speedup is:
@@ -122,6 +137,33 @@ The current implementation reaches:
 47.09 / 49.24 = 95.6% of reference output throughput
 56.45 / 59.80 = 94.4% of reference decode throughput
 ```
+
+## End-to-End Pressure Matrix
+
+All runs used:
+
+```text
+input_len=64
+output_len=32
+warmup=1
+seed=0
+flash_attention=False
+```
+
+| Implementation | num_seqs | Prompt tokens | Generated tokens | Output tok/s | Total tok/s | Prefill tok/s | Decode tok/s | Raw output |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| tiny_llm | 1 | 64 | 32 | 49.25 | 147.76 | 470.13 | 60.40 | `benchmarks/end_to_end_tiny_llm_week2_qwen3_0_6b_numseq1.txt` |
+| tiny_llm_ref | 1 | 64 | 32 | 46.85 | 140.56 | 486.59 | 56.26 | `benchmarks/end_to_end_tiny_llm_ref_week2_qwen3_0_6b_numseq1.txt` |
+| tiny_llm | 4 | 256 | 128 | 47.09 | 141.26 | 491.71 | 56.45 | `benchmarks/end_to_end_tiny_llm_week2_qwen3_0_6b.txt` |
+| tiny_llm_ref | 4 | 256 | 128 | 49.24 | 147.73 | 488.10 | 59.80 | `benchmarks/end_to_end_tiny_llm_ref_week2_qwen3_0_6b.txt` |
+| tiny_llm | 8 | 512 | 256 | 47.77 | 143.32 | 481.90 | 57.76 | `benchmarks/end_to_end_tiny_llm_week2_qwen3_0_6b_numseq8.txt` |
+| tiny_llm_ref | 8 | 512 | 256 | 47.61 | 142.84 | 493.38 | 57.19 | `benchmarks/end_to_end_tiny_llm_ref_week2_qwen3_0_6b_numseq8.txt` |
+
+Pressure takeaway:
+
+- Across `num_seqs=1/4/8`, the current implementation remains in the same throughput band as the reference implementation.
+- The small wins/losses across runs are close enough that they should be treated as benchmark noise unless repeated with more iterations.
+- The stable conclusion is not "always faster"; it is that the end-to-end quantized path is functionally integrated and performs near reference speed on this Apple Silicon workload.
 
 ## Interpretation
 

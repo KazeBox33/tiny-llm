@@ -300,6 +300,10 @@ Raw reproducible outputs:
 - `benchmarks/quantized_linear_qwen3_0_6b_metal.json`
 - `benchmarks/end_to_end_tiny_llm_week2_qwen3_0_6b.txt`
 - `benchmarks/end_to_end_tiny_llm_ref_week2_qwen3_0_6b.txt`
+- `benchmarks/end_to_end_tiny_llm_week2_qwen3_0_6b_numseq1.txt`
+- `benchmarks/end_to_end_tiny_llm_ref_week2_qwen3_0_6b_numseq1.txt`
+- `benchmarks/end_to_end_tiny_llm_week2_qwen3_0_6b_numseq8.txt`
+- `benchmarks/end_to_end_tiny_llm_ref_week2_qwen3_0_6b_numseq8.txt`
 
 Environment:
 
@@ -382,6 +386,25 @@ The current implementation reaches:
 47.09 / 49.24 = 95.6% of reference output throughput
 56.45 / 59.80 = 94.4% of reference decode throughput
 ```
+
+### End-to-End Pressure Matrix
+
+All runs used `input_len=64`, `output_len=32`, `warmup=1`, `seed=0`, and `flash_attention=False`.
+
+| Implementation | num_seqs | Output tok/s | Total tok/s | Prefill tok/s | Decode tok/s |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `tiny_llm` | 1 | 49.25 | 147.76 | 470.13 | 60.40 |
+| `tiny_llm_ref` | 1 | 46.85 | 140.56 | 486.59 | 56.26 |
+| `tiny_llm` | 4 | 47.09 | 141.26 | 491.71 | 56.45 |
+| `tiny_llm_ref` | 4 | 49.24 | 147.73 | 488.10 | 59.80 |
+| `tiny_llm` | 8 | 47.77 | 143.32 | 481.90 | 57.76 |
+| `tiny_llm_ref` | 8 | 47.61 | 142.84 | 493.38 | 57.19 |
+
+Pressure takeaway:
+
+- Across `num_seqs=1/4/8`, the current implementation remains in the same throughput band as the reference implementation.
+- The stable claim is near-reference end-to-end throughput, not a universal speedup.
+- The isolated linear benchmark shows where the current custom kernel helps most: decode-like small `M`, especially tied `lm_head`.
 
 ## Resume Bullets To Refine Later
 
