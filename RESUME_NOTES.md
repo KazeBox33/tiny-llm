@@ -298,6 +298,7 @@ benchmarks/QUANTIZED_LINEAR_BENCHMARK.md
 Raw reproducible outputs:
 
 - `benchmarks/quantized_linear_qwen3_0_6b_metal.json`
+- `benchmarks/quantized_vs_dequantized_inference_qwen3_0_6b.json`
 - `benchmarks/end_to_end_tiny_llm_week2_qwen3_0_6b.txt`
 - `benchmarks/end_to_end_tiny_llm_ref_week2_qwen3_0_6b.txt`
 - `benchmarks/end_to_end_tiny_llm_week2_qwen3_0_6b_numseq1.txt`
@@ -406,13 +407,45 @@ Pressure takeaway:
 - The stable claim is near-reference end-to-end throughput, not a universal speedup.
 - The isolated linear benchmark shows where the current custom kernel helps most: decode-like small `M`, especially tied `lm_head`.
 
+### Full Inference: Quantized vs Dequantized
+
+This comparison keeps the Week 2 KV-cache inference path fixed. The only intended difference is:
+
+- Dequantized path: fully dequantized weights + ordinary `linear`.
+- Quantized path: packed int4 weights + custom `quantized_linear`.
+
+Command:
+
+```bash
+pdm run python scripts/bench_quantized_vs_dequantized_inference.py \
+  --model qwen3-0.6b \
+  --num-seqs 1 4 8 \
+  --input-len 64 \
+  --output-len 32 \
+  --warmup 1 \
+  --seed 0 \
+  --output-json benchmarks/quantized_vs_dequantized_inference_qwen3_0_6b.json
+```
+
+| num_seqs | Dequantized output tok/s | Quantized output tok/s | Output speedup | Dequantized decode tok/s | Quantized decode tok/s | Decode speedup |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 49.50 | 48.47 | 0.98x | 51.53 | 59.36 | 1.15x |
+| 4 | 48.85 | 48.88 | 1.00x | 50.94 | 59.69 | 1.17x |
+| 8 | 46.59 | 47.00 | 1.01x | 48.45 | 56.99 | 1.18x |
+
+Honest conclusion:
+
+- Full output throughput is roughly parity, from 0.98x to 1.01x.
+- Decode throughput improves with quantized inference, from 1.15x to 1.18x.
+- Prefill is slower in the current quantized path because the Metal kernel is not yet a tiled GEMM-style implementation for large `M`.
+
 ## Resume Bullets To Refine Later
 
 - Implemented a Qwen3 inference engine from scratch on Apple Silicon using MLX, covering attention, RoPE, RMSNorm, MLP, KV cache, sampling, and quantized model loading.
 - Built KV-cache based autoregressive decoding to avoid repeated prefix computation and improve generation efficiency.
 - Developed and integrated 4-bit quantized weight wrappers plus a fused C++ / Metal dequantization + matrix multiplication path for memory-bandwidth-aware Qwen3 inference.
 - Configured and verified a custom MLX C++/Metal extension toolchain, enabling low-level kernel development for LLM inference acceleration.
-- Benchmarked the custom quantized linear path against a dequantized baseline, measuring up to 3.22x speedup on tied `lm_head` decode-like workloads and 95.6% of reference end-to-end output throughput on Qwen3-0.6B.
+- Benchmarked custom 4-bit quantized inference against dequantized inference on Qwen3-0.6B, measuring 1.15x-1.18x decode throughput improvement and identifying large-`M` prefill as the next kernel optimization bottleneck.
 - Studied and implemented AI infrastructure concepts including packed weights, custom primitives, lazy execution, KV cache, and GPU kernel dispatch.
 
 ## Open Items

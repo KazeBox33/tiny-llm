@@ -17,6 +17,7 @@ Raw system metadata is recorded in:
 
 ```text
 benchmarks/quantized_linear_qwen3_0_6b_metal.json
+benchmarks/quantized_vs_dequantized_inference_qwen3_0_6b.json
 ```
 
 Observed environment:
@@ -59,6 +60,24 @@ pdm bench --solution tiny_llm --loader week2 --model qwen3-0.6b \
   --warmup 1 \
   --seed 0
 ```
+
+Run full inference quantized-vs-dequantized comparison:
+
+```bash
+pdm run python scripts/bench_quantized_vs_dequantized_inference.py \
+  --model qwen3-0.6b \
+  --num-seqs 1 4 8 \
+  --input-len 64 \
+  --output-len 32 \
+  --warmup 1 \
+  --seed 0 \
+  --output-json benchmarks/quantized_vs_dequantized_inference_qwen3_0_6b.json
+```
+
+This comparison keeps the Week 2 KV-cache inference path fixed. The only intended difference is:
+
+- Dequantized path: fully dequantized weights + ordinary `linear`.
+- Quantized path: packed int4 weights + custom `quantized_linear`.
 
 Reference implementation comparison:
 
@@ -164,6 +183,33 @@ Pressure takeaway:
 - Across `num_seqs=1/4/8`, the current implementation remains in the same throughput band as the reference implementation.
 - The small wins/losses across runs are close enough that they should be treated as benchmark noise unless repeated with more iterations.
 - The stable conclusion is not "always faster"; it is that the end-to-end quantized path is functionally integrated and performs near reference speed on this Apple Silicon workload.
+
+## Full Inference: Quantized vs Dequantized
+
+This is the fairest comparison for the question "does using quantized inference make the model faster?" Both paths use Week 2 KV cache. The dequantized path uses ordinary `linear` on fully dequantized weights; the quantized path uses packed int4 weights and custom `quantized_linear`.
+
+Configuration:
+
+```text
+input_len=64
+output_len=32
+warmup=1
+seed=0
+flash_attention=False
+```
+
+| num_seqs | Dequantized output tok/s | Quantized output tok/s | Output speedup | Dequantized decode tok/s | Quantized decode tok/s | Decode speedup | Dequantized prefill tok/s | Quantized prefill tok/s |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 49.50 | 48.47 | 0.98x | 51.53 | 59.36 | 1.15x | 1430.46 | 464.59 |
+| 4 | 48.85 | 48.88 | 1.00x | 50.94 | 59.69 | 1.17x | 1380.58 | 473.58 |
+| 8 | 46.59 | 47.00 | 1.01x | 48.45 | 56.99 | 1.18x | 1365.01 | 467.82 |
+
+Interpretation:
+
+- End-to-end output throughput is roughly parity: 0.98x to 1.01x.
+- Decode throughput improves consistently with quantized inference: 1.15x to 1.18x.
+- Prefill is slower with the current quantized kernel because prefill is a larger-`M` matrix multiplication workload, and the current Metal kernel is a simple teaching kernel rather than a tiled GEMM kernel.
+- The honest conclusion is: quantization helps decode speed in the current implementation, but it does not yet improve full end-to-end throughput because prefill is bottlenecked by the non-optimized large-`M` quantized matmul.
 
 ## Interpretation
 

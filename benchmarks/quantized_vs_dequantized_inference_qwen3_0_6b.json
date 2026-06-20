@@ -1,0 +1,94 @@
+{
+  "benchmark": "full_inference_dequantized_vs_quantized",
+  "model": "Qwen/Qwen3-0.6B-MLX-4bit",
+  "input_len": 64,
+  "output_len": 32,
+  "warmup": 1,
+  "seed": 0,
+  "system": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "processor": "arm",
+    "cpu": "Apple M5",
+    "machine": "arm64"
+  },
+  "results": [
+    {
+      "num_seqs": 1,
+      "dequantized": {
+        "name": "dequantized_week2_linear",
+        "requests": 1,
+        "prompt_tokens": 64,
+        "generated_tokens": 32,
+        "time_s": 0.646528415963985,
+        "output_tok_s": 49.49511763112136,
+        "total_tok_s": 148.48535289336408,
+        "prefill_tok_s": 1430.4592829971202,
+        "decode_tok_s": 51.52642554156727
+      },
+      "quantized": {
+        "name": "packed_int4_quantized_linear",
+        "requests": 1,
+        "prompt_tokens": 64,
+        "generated_tokens": 32,
+        "time_s": 0.6601838750066236,
+        "output_tok_s": 48.47134444124214,
+        "total_tok_s": 145.41403332372641,
+        "prefill_tok_s": 464.5863333953898,
+        "decode_tok_s": 59.35615356838437
+      },
+      "quantized_vs_dequantized_output_speedup": 0.979315673163781
+    },
+    {
+      "num_seqs": 4,
+      "dequantized": {
+        "name": "dequantized_week2_linear",
+        "requests": 4,
+        "prompt_tokens": 256,
+        "generated_tokens": 128,
+        "time_s": 2.6201329170144163,
+        "output_tok_s": 48.85248346326383,
+        "total_tok_s": 146.55745038979148,
+        "prefill_tok_s": 1380.5823335099415,
+        "decode_tok_s": 50.94040509762214
+      },
+      "quantized": {
+        "name": "packed_int4_quantized_linear",
+        "requests": 4,
+        "prompt_tokens": 256,
+        "generated_tokens": 128,
+        "time_s": 2.6186738749966025,
+        "output_tok_s": 48.879702517430154,
+        "total_tok_s": 146.63910755229045,
+        "prefill_tok_s": 473.57612459779085,
+        "decode_tok_s": 59.68702602569918
+      },
+      "quantized_vs_dequantized_output_speedup": 1.0005571682796186
+    },
+    {
+      "num_seqs": 8,
+      "dequantized": {
+        "name": "dequantized_week2_linear",
+        "requests": 8,
+        "prompt_tokens": 512,
+        "generated_tokens": 256,
+        "time_s": 5.494828291994054,
+        "output_tok_s": 46.589262920734235,
+        "total_tok_s": 139.7677887622027,
+        "prefill_tok_s": 1365.0082978580556,
+        "decode_tok_s": 48.449770870870104
+      },
+      "quantized": {
+        "name": "packed_int4_quantized_linear",
+        "requests": 8,
+        "prompt_tokens": 512,
+        "generated_tokens": 256,
+        "time_s": 5.447080707992427,
+        "output_tok_s": 46.99765135192043,
+        "total_tok_s": 140.9929540557613,
+        "prefill_tok_s": 467.8163448105398,
+        "decode_tok_s": 56.993349749469395
+      },
+      "quantized_vs_dequantized_output_speedup": 1.0087657199445508
+    }
+  ]
+}
