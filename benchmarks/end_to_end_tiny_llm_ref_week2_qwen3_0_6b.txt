@@ -1,0 +1,10 @@
+STATUS: Resolving packages from lockfile...
+Solution=tiny_llm_ref Loader=week2 Device=gpu Model=Qwen/Qwen3-0.6B-MLX-4bit FlashAttn=False
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Fetching 7 files: 100%|██████████| 7/7 [00:00<00:00, 48210.39it/s]
+Warmup runs: 1
+Warmup:   0%|          | 0/1 [00:00<?, ?it/s]Warmup: 100%|██████████| 1/1 [00:00<00:00,  1.15it/s]                                                     Bench:   0%|          | 0/4 [00:00<?, ?it/s]Bench:  25%|██▌       | 1/4 [00:00<00:01,  1.54it/s]Bench:  25%|██▌       | 1/4 [00:00<00:01,  1.54it/s, out_tok/s=49.3, decode_tok/s=59.9]Bench:  50%|█████     | 2/4 [00:01<00:01,  1.54it/s, out_tok/s=49.3, decode_tok/s=59.9]Bench:  50%|█████     | 2/4 [00:01<00:01,  1.54it/s, out_tok/s=49.3, decode_tok/s=59.9]Bench:  75%|███████▌  | 3/4 [00:01<00:00,  1.54it/s, out_tok/s=49.3, decode_tok/s=59.9]Bench:  75%|███████▌  | 3/4 [00:01<00:00,  1.54it/s, out_tok/s=49.3, decode_tok/s=59.8]Bench: 100%|██████████| 4/4 [00:02<00:00,  1.54it/s, out_tok/s=49.3, decode_tok/s=59.8]Bench: 100%|██████████| 4/4 [00:02<00:00,  1.54it/s, out_tok/s=49.2, decode_tok/s=59.8]Bench: 100%|██████████| 4/4 [00:02<00:00,  1.54it/s, out_tok/s=49.2, decode_tok/s=59.8]
+Requests: 4, Prompt tokens: 256, Generated tokens: 128
+Time: 2.60s, Output throughput: 49.24 tok/s
+Total throughput (prompt+output): 147.73 tok/s
+Prefill throughput: 488.10 tok/s
+Decode throughput: 59.80 tok/s

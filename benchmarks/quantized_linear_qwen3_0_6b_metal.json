@@ -1,0 +1,292 @@
+{
+  "benchmark": "quantized_linear_vs_dequantized_linear",
+  "model": "Qwen/Qwen3-0.6B-MLX-4bit",
+  "layer_index": 0,
+  "warmup": 10,
+  "iters": 50,
+  "seed": 0,
+  "system": {
+    "platform": "macOS-26.5.1-arm64-arm-64bit",
+    "processor": "arm",
+    "cpu": "Apple M5",
+    "machine": "arm64"
+  },
+  "results": [
+    {
+      "layer": "q_proj",
+      "source_layer": "layers.0.self_attn.q_proj",
+      "rows": 1,
+      "input_dim": 1024,
+      "output_dim": 2048,
+      "dtype": "mlx.core.bfloat16",
+      "baseline": {
+        "mean_ms": 0.25243160082027316,
+        "median_ms": 0.22704197908751667,
+        "min_ms": 0.1403329661116004,
+        "p95_ms": 0.4478750051930547
+      },
+      "quantized": {
+        "mean_ms": 0.2549925399944186,
+        "median_ms": 0.21904200548306108,
+        "min_ms": 0.1348750083707273,
+        "p95_ms": 0.4467500257305801
+      },
+      "speedup_median": 1.0365225545977492,
+      "max_abs_diff": 0.015625,
+      "mean_abs_diff": 0.000713348388671875
+    },
+    {
+      "layer": "q_proj",
+      "source_layer": "layers.0.self_attn.q_proj",
+      "rows": 16,
+      "input_dim": 1024,
+      "output_dim": 2048,
+      "dtype": "mlx.core.bfloat16",
+      "baseline": {
+        "mean_ms": 0.32871336210519075,
+        "median_ms": 0.28114550514146686,
+        "min_ms": 0.1967910211533308,
+        "p95_ms": 0.5778339691460133
+      },
+      "quantized": {
+        "mean_ms": 0.2993241383228451,
+        "median_ms": 0.2845209965016693,
+        "min_ms": 0.22941699717193842,
+        "p95_ms": 0.4076249897480011
+      },
+      "speedup_median": 0.9881362310630645,
+      "max_abs_diff": 0.03125,
+      "mean_abs_diff": 0.000732421875
+    },
+    {
+      "layer": "q_proj",
+      "source_layer": "layers.0.self_attn.q_proj",
+      "rows": 128,
+      "input_dim": 1024,
+      "output_dim": 2048,
+      "dtype": "mlx.core.bfloat16",
+      "baseline": {
+        "mean_ms": 0.37099414272233844,
+        "median_ms": 0.3451875236351043,
+        "min_ms": 0.24374999338760972,
+        "p95_ms": 0.5456660292111337
+      },
+      "quantized": {
+        "mean_ms": 1.017687562853098,
+        "median_ms": 0.7959585054777563,
+        "min_ms": 0.7192080374807119,
+        "p95_ms": 1.8236670293845236
+      },
+      "speedup_median": 0.43367527485357193,
+      "max_abs_diff": 0.0625,
+      "mean_abs_diff": 0.000728607177734375
+    },
+    {
+      "layer": "up_proj",
+      "source_layer": "layers.0.mlp.up_proj",
+      "rows": 1,
+      "input_dim": 1024,
+      "output_dim": 3072,
+      "dtype": "mlx.core.bfloat16",
+      "baseline": {
+        "mean_ms": 0.26779002510011196,
+        "median_ms": 0.24649998522363603,
+        "min_ms": 0.13220903929322958,
+        "p95_ms": 0.4159579984843731
+      },
+      "quantized": {
+        "mean_ms": 0.24853746290318665,
+        "median_ms": 0.22622902179136872,
+        "min_ms": 0.14279200695455074,
+        "p95_ms": 0.36254205042496324
+      },
+      "speedup_median": 1.0896037266649257,
+      "max_abs_diff": 0.015625,
+      "mean_abs_diff": 0.0008087158203125
+    },
+    {
+      "layer": "up_proj",
+      "source_layer": "layers.0.mlp.up_proj",
+      "rows": 16,
+      "input_dim": 1024,
+      "output_dim": 3072,
+      "dtype": "mlx.core.bfloat16",
+      "baseline": {
+        "mean_ms": 0.334432563977316,
+        "median_ms": 0.3122085181530565,
+        "min_ms": 0.22350001381710172,
+        "p95_ms": 0.5107920151203871
+      },
+      "quantized": {
+        "mean_ms": 0.35804826533421874,
+        "median_ms": 0.3088540106546134,
+        "min_ms": 0.20595797104761004,
+        "p95_ms": 0.6209170096553862
+      },
+      "speedup_median": 1.0108611427493956,
+      "max_abs_diff": 0.015625,
+      "mean_abs_diff": 0.0009002685546875
+    },
+    {
+      "layer": "up_proj",
+      "source_layer": "layers.0.mlp.up_proj",
+      "rows": 128,
+      "input_dim": 1024,
+      "output_dim": 3072,
+      "dtype": "mlx.core.bfloat16",
+      "baseline": {
+        "mean_ms": 0.4924949049018323,
+        "median_ms": 0.42458350071683526,
+        "min_ms": 0.3552919952198863,
+        "p95_ms": 0.6786250160075724
+      },
+      "quantized": {
+        "mean_ms": 1.386252377415076,
+        "median_ms": 1.1270829709246755,
+        "min_ms": 1.0102910455316305,
+        "p95_ms": 2.494624990504235
+      },
+      "speedup_median": 0.37671006631259873,
+      "max_abs_diff": 0.015625,
+      "mean_abs_diff": 0.00091552734375
+    },
+    {
+      "layer": "down_proj",
+      "source_layer": "layers.0.mlp.down_proj",
+      "rows": 1,
+      "input_dim": 3072,
+      "output_dim": 1024,
+      "dtype": "mlx.core.bfloat16",
+      "baseline": {
+        "mean_ms": 0.2584775583818555,
+        "median_ms": 0.24372950429096818,
+        "min_ms": 0.16587501158937812,
+        "p95_ms": 0.3516250289976597
+      },
+      "quantized": {
+        "mean_ms": 0.2834516018629074,
+        "median_ms": 0.2707294770516455,
+        "min_ms": 0.1721670269034803,
+        "p95_ms": 0.35054096952080727
+      },
+      "speedup_median": 0.900269549312775,
+      "max_abs_diff": 0.015625,
+      "mean_abs_diff": 0.00099945068359375
+    },
+    {
+      "layer": "down_proj",
+      "source_layer": "layers.0.mlp.down_proj",
+      "rows": 16,
+      "input_dim": 3072,
+      "output_dim": 1024,
+      "dtype": "mlx.core.bfloat16",
+      "baseline": {
+        "mean_ms": 0.3866708232089877,
+        "median_ms": 0.36062501021660864,
+        "min_ms": 0.2543750451877713,
+        "p95_ms": 0.5182920140214264
+      },
+      "quantized": {
+        "mean_ms": 0.3614458139054477,
+        "median_ms": 0.3412704973015934,
+        "min_ms": 0.23924995912238955,
+        "p95_ms": 0.5152089870534837
+      },
+      "speedup_median": 1.056713114869437,
+      "max_abs_diff": 0.03125,
+      "mean_abs_diff": 0.00099945068359375
+    },
+    {
+      "layer": "down_proj",
+      "source_layer": "layers.0.mlp.down_proj",
+      "rows": 128,
+      "input_dim": 3072,
+      "output_dim": 1024,
+      "dtype": "mlx.core.bfloat16",
+      "baseline": {
+        "mean_ms": 0.4836850438732654,
+        "median_ms": 0.469812483061105,
+        "min_ms": 0.3492499818094075,
+        "p95_ms": 0.6172080175019801
+      },
+      "quantized": {
+        "mean_ms": 1.4787233446259052,
+        "median_ms": 1.406333496561274,
+        "min_ms": 1.1166250333189964,
+        "p95_ms": 2.0198749843984842
+      },
+      "speedup_median": 0.33406904138305527,
+      "max_abs_diff": 0.03125,
+      "mean_abs_diff": 0.001007080078125
+    },
+    {
+      "layer": "lm_head",
+      "source_layer": "embed_tokens(tied_lm_head)",
+      "rows": 1,
+      "input_dim": 1024,
+      "output_dim": 151936,
+      "dtype": "mlx.core.bfloat16",
+      "baseline": {
+        "mean_ms": 3.863945041084662,
+        "median_ms": 3.767854010220617,
+        "min_ms": 2.623374981340021,
+        "p95_ms": 5.305457976646721
+      },
+      "quantized": {
+        "mean_ms": 1.3349234021734446,
+        "median_ms": 1.170917006675154,
+        "min_ms": 0.955166993662715,
+        "p95_ms": 2.0429169526323676
+      },
+      "speedup_median": 3.2178659877180587,
+      "max_abs_diff": 0.015625,
+      "mean_abs_diff": 0.0010223388671875
+    },
+    {
+      "layer": "lm_head",
+      "source_layer": "embed_tokens(tied_lm_head)",
+      "rows": 16,
+      "input_dim": 1024,
+      "output_dim": 151936,
+      "dtype": "mlx.core.bfloat16",
+      "baseline": {
+        "mean_ms": 7.317214157665148,
+        "median_ms": 7.385166478343308,
+        "min_ms": 5.747832998167723,
+        "p95_ms": 8.063499990385026
+      },
+      "quantized": {
+        "mean_ms": 7.1998725133016706,
+        "median_ms": 7.456770981661975,
+        "min_ms": 5.299334006849676,
+        "p95_ms": 7.643499993719161
+      },
+      "speedup_median": 0.990397384672969,
+      "max_abs_diff": 0.03125,
+      "mean_abs_diff": 0.0010223388671875
+    },
+    {
+      "layer": "lm_head",
+      "source_layer": "embed_tokens(tied_lm_head)",
+      "rows": 128,
+      "input_dim": 1024,
+      "output_dim": 151936,
+      "dtype": "mlx.core.bfloat16",
+      "baseline": {
+        "mean_ms": 13.270900044590235,
+        "median_ms": 13.607437489554286,
+        "min_ms": 10.69216604810208,
+        "p95_ms": 14.824624988250434
+      },
+      "quantized": {
+        "mean_ms": 62.037771698087454,
+        "median_ms": 60.782812506658956,
+        "min_ms": 59.854375023860484,
+        "p95_ms": 66.36620900826529
+      },
+      "speedup_median": 0.22386982320147733,
+      "max_abs_diff": 0.03125,
+      "mean_abs_diff": 0.00102996826171875
+    }
+  ]
+}

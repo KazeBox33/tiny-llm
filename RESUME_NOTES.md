@@ -287,30 +287,114 @@ Performance impact:
 - Improves long-context generation latency.
 - Introduces cache memory management problems that become important in batched serving.
 
-## Benchmark / Data TODO
+## Benchmark / Data
 
-Add concrete benchmark data here as we implement more kernels:
+Detailed benchmark report:
 
-| Stage | Command | Model | Device | Prompt / Tokens | Latency | Tokens/s | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Week 1 baseline | TODO | Qwen3-0.6B-MLX-4bit | Apple Silicon | TODO | TODO | TODO | no KV cache |
-| Week 2 KV cache | TODO | Qwen3-0.6B-MLX-4bit | Apple Silicon | TODO | TODO | TODO | with KV cache |
-| Quantized matmul CPU | `DEBUG=0 pdm run test --week 2 --day 2 -- -k task_2` | Qwen3-0.6B-MLX-4bit | Apple Silicon CPU | unit test tensors | n/a | n/a | 4 official CPU tests passed |
-| Quantized matmul Metal | TODO | Qwen3-0.6B-MLX-4bit | Apple Silicon | TODO | TODO | TODO | fused GPU kernel |
+```text
+benchmarks/QUANTIZED_LINEAR_BENCHMARK.md
+```
+
+Raw reproducible outputs:
+
+- `benchmarks/quantized_linear_qwen3_0_6b_metal.json`
+- `benchmarks/end_to_end_tiny_llm_week2_qwen3_0_6b.txt`
+- `benchmarks/end_to_end_tiny_llm_ref_week2_qwen3_0_6b.txt`
+
+Environment:
+
+```text
+Date: 2026-06-20
+Platform: macOS-26.5.1-arm64-arm-64bit
+CPU: Apple M5
+Device: MLX GPU / Metal
+Model: Qwen/Qwen3-0.6B-MLX-4bit
+```
+
+### Isolated Quantized Linear Benchmark
+
+Command:
+
+```bash
+pdm run python scripts/bench_quantized_linear.py \
+  --model qwen3-0.6b \
+  --layers q_proj up_proj down_proj lm_head \
+  --rows 1 16 128 \
+  --warmup 10 \
+  --iters 50 \
+  --seed 0 \
+  --output-json benchmarks/quantized_linear_qwen3_0_6b_metal.json
+```
+
+Baseline means dequantizing the 4-bit weight once and running ordinary `linear`.
+Quantized means keeping packed 4-bit weights and calling the custom C++ / Metal `quantized_matmul`.
+
+| Layer | Rows M | Baseline median ms | Quantized median ms | Speedup | Note |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `q_proj` | 1 | 0.227 | 0.219 | 1.04x | decode-like small M |
+| `up_proj` | 1 | 0.246 | 0.226 | 1.09x | decode-like small M |
+| `down_proj` | 16 | 0.361 | 0.341 | 1.06x | medium M |
+| tied `lm_head` | 1 | 3.768 | 1.171 | 3.22x | largest small-M win |
+| `q_proj` | 128 | 0.345 | 0.796 | 0.43x | large-M prefill is slower |
+| `up_proj` | 128 | 0.425 | 1.127 | 0.38x | needs tiled GEMM-style kernel |
+| tied `lm_head` | 128 | 13.607 | 60.783 | 0.22x | simple kernel bottleneck |
+
+Takeaway:
+
+- The custom quantized path is useful for decode-like small `M`, especially tied `lm_head` at `M=1`, where it measured 3.22x faster than the dequantized baseline.
+- For large `M`, the current one-thread-per-output-element teaching kernel is slower than MLX's dequantized matmul.
+- Next performance work should target tiled/threadgroup-memory/SIMD-reduction matmul for large prefill batches.
+
+### End-to-End Week 2 Benchmark
+
+Command:
+
+```bash
+pdm bench --solution tiny_llm --loader week2 --model qwen3-0.6b \
+  --num-seqs 4 \
+  --min-input-len 64 --max-input-len 64 \
+  --min-output-len 32 --max-output-len 32 \
+  --warmup 1 \
+  --seed 0
+```
+
+Reference comparison:
+
+```bash
+DEBUG=0 pdm run build-ext-ref
+
+pdm bench --solution tiny_llm_ref --loader week2 --model qwen3-0.6b \
+  --num-seqs 4 \
+  --min-input-len 64 --max-input-len 64 \
+  --min-output-len 32 --max-output-len 32 \
+  --warmup 1 \
+  --seed 0
+```
+
+| Implementation | Output tok/s | Total tok/s | Prefill tok/s | Decode tok/s |
+| --- | ---: | ---: | ---: | ---: |
+| `tiny_llm` | 47.09 | 141.26 | 491.71 | 56.45 |
+| `tiny_llm_ref` | 49.24 | 147.73 | 488.10 | 59.80 |
+
+The current implementation reaches:
+
+```text
+47.09 / 49.24 = 95.6% of reference output throughput
+56.45 / 59.80 = 94.4% of reference decode throughput
+```
 
 ## Resume Bullets To Refine Later
 
 - Implemented a Qwen3 inference engine from scratch on Apple Silicon using MLX, covering attention, RoPE, RMSNorm, MLP, KV cache, sampling, and quantized model loading.
 - Built KV-cache based autoregressive decoding to avoid repeated prefix computation and improve generation efficiency.
-- Developed quantized 4-bit weight wrappers and prepared fused dequantization + matrix multiplication for memory-bandwidth-efficient inference.
+- Developed and integrated 4-bit quantized weight wrappers plus a fused C++ / Metal dequantization + matrix multiplication path for memory-bandwidth-aware Qwen3 inference.
 - Configured and verified a custom MLX C++/Metal extension toolchain, enabling low-level kernel development for LLM inference acceleration.
+- Benchmarked the custom quantized linear path against a dequantized baseline, measuring up to 3.22x speedup on tied `lm_head` decode-like workloads and 95.6% of reference end-to-end output throughput on Qwen3-0.6B.
 - Studied and implemented AI infrastructure concepts including packed weights, custom primitives, lazy execution, KV cache, and GPU kernel dispatch.
 
 ## Open Items
 
-- Implement CPU `quantized_matmul` primitive.
-- Implement Metal `quantized_matmul` kernel.
-- Benchmark Python dequantized path vs C++ CPU path vs Metal path.
-- Add quantitative speedup data.
+- Optimize large-`M` quantized matmul with a tiled/threadgroup-memory/SIMD-reduction Metal kernel.
+- Benchmark more prompt/output length combinations and batch sizes.
 - Continue Week 2 FlashAttention and batching tasks.
 - Add Week 3 paged attention / MoE notes after implementation.

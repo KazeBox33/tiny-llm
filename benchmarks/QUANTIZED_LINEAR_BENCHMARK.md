@@ -1,0 +1,143 @@
+# Quantized Linear Benchmark - Qwen3 0.6B
+
+Date: 2026-06-20
+
+## Goal
+
+Measure the performance impact of the Week 2 quantized inference path:
+
+- Baseline: dequantize the 4-bit weight once, then run ordinary `linear(x, w)`.
+- Quantized path: keep packed 4-bit weights and run `quantized_linear(x, w)`, which dispatches the custom C++ / Metal `quantized_matmul` primitive.
+
+This benchmark isolates the linear layer path. It does not include tokenizer overhead.
+
+## Environment
+
+Raw system metadata is recorded in:
+
+```text
+benchmarks/quantized_linear_qwen3_0_6b_metal.json
+```
+
+Observed environment:
+
+```text
+Platform: macOS-26.5.1-arm64-arm-64bit
+CPU: Apple M5
+Device: MLX GPU / Metal
+Model: Qwen/Qwen3-0.6B-MLX-4bit
+```
+
+## Reproduction
+
+Build extensions:
+
+```bash
+DEBUG=0 pdm run build-ext
+```
+
+Run isolated linear benchmark:
+
+```bash
+pdm run python scripts/bench_quantized_linear.py \
+  --model qwen3-0.6b \
+  --layers q_proj up_proj down_proj lm_head \
+  --rows 1 16 128 \
+  --warmup 10 \
+  --iters 50 \
+  --seed 0 \
+  --output-json benchmarks/quantized_linear_qwen3_0_6b_metal.json
+```
+
+Run end-to-end Week 2 throughput benchmark:
+
+```bash
+pdm bench --solution tiny_llm --loader week2 --model qwen3-0.6b \
+  --num-seqs 4 \
+  --min-input-len 64 --max-input-len 64 \
+  --min-output-len 32 --max-output-len 32 \
+  --warmup 1 \
+  --seed 0
+```
+
+Reference implementation comparison:
+
+```bash
+DEBUG=0 pdm run build-ext-ref
+
+pdm bench --solution tiny_llm_ref --loader week2 --model qwen3-0.6b \
+  --num-seqs 4 \
+  --min-input-len 64 --max-input-len 64 \
+  --min-output-len 32 --max-output-len 32 \
+  --warmup 1 \
+  --seed 0
+```
+
+## Isolated Linear Results
+
+Median latency is reported in milliseconds. Speedup is:
+
+```text
+baseline_median_ms / quantized_median_ms
+```
+
+So `> 1.0x` means the custom quantized path is faster.
+
+| Layer | Source | Rows M | Baseline median ms | Quantized median ms | Speedup | Max abs diff |
+|---|---|---:|---:|---:|---:|---:|
+| q_proj | layers.0.self_attn.q_proj | 1 | 0.227 | 0.219 | 1.04x | 0.0156 |
+| q_proj | layers.0.self_attn.q_proj | 16 | 0.281 | 0.285 | 0.99x | 0.0312 |
+| q_proj | layers.0.self_attn.q_proj | 128 | 0.345 | 0.796 | 0.43x | 0.0625 |
+| up_proj | layers.0.mlp.up_proj | 1 | 0.246 | 0.226 | 1.09x | 0.0156 |
+| up_proj | layers.0.mlp.up_proj | 16 | 0.312 | 0.309 | 1.01x | 0.0156 |
+| up_proj | layers.0.mlp.up_proj | 128 | 0.425 | 1.127 | 0.38x | 0.0156 |
+| down_proj | layers.0.mlp.down_proj | 1 | 0.244 | 0.271 | 0.90x | 0.0156 |
+| down_proj | layers.0.mlp.down_proj | 16 | 0.361 | 0.341 | 1.06x | 0.0312 |
+| down_proj | layers.0.mlp.down_proj | 128 | 0.470 | 1.406 | 0.33x | 0.0312 |
+| lm_head | embed_tokens(tied_lm_head) | 1 | 3.768 | 1.171 | 3.22x | 0.0156 |
+| lm_head | embed_tokens(tied_lm_head) | 16 | 7.385 | 7.457 | 0.99x | 0.0312 |
+| lm_head | embed_tokens(tied_lm_head) | 128 | 13.607 | 60.783 | 0.22x | 0.0312 |
+
+## End-to-End Week 2 Results
+
+Configuration:
+
+```text
+num_seqs=4
+input_len=64
+output_len=32
+warmup=1
+seed=0
+flash_attention=False
+```
+
+| Implementation | Output tok/s | Total tok/s | Prefill tok/s | Decode tok/s | Raw output |
+|---|---:|---:|---:|---:|---|
+| tiny_llm | 47.09 | 141.26 | 491.71 | 56.45 | `benchmarks/end_to_end_tiny_llm_week2_qwen3_0_6b.txt` |
+| tiny_llm_ref | 49.24 | 147.73 | 488.10 | 59.80 | `benchmarks/end_to_end_tiny_llm_ref_week2_qwen3_0_6b.txt` |
+
+The current implementation reaches:
+
+```text
+47.09 / 49.24 = 95.6% of reference output throughput
+56.45 / 59.80 = 94.4% of reference decode throughput
+```
+
+## Interpretation
+
+- The custom quantized path helps most when `M` is small, especially for the tied `lm_head` decode case (`M=1`, 3.22x faster than the dequantized baseline).
+- For medium `M=16`, the custom quantized path is roughly at parity on the measured layers.
+- For larger `M=128`, the current teaching kernel is slower than MLX's dequantized floating-point matmul. This is expected because our Metal kernel uses a simple one-thread-per-output-element design and does not yet implement tiled/threadgroup memory or SIMD-group reduction.
+- End-to-end inference is already close to the reference implementation on this workload, at 95.6% of reference output throughput.
+
+## Next Optimization Direction
+
+The measured bottleneck is large-`M` matmul. To improve prefill/batched performance:
+
+- tile the output matrix,
+- let a threadgroup cooperate on a tile,
+- reuse activation/weight chunks,
+- use SIMD-group or threadgroup-level reduction,
+- reduce repeated global memory reads.
+
+The current kernel is correct and useful for decode-like small-`M` workloads, but larger prefill workloads need a more GEMM-like implementation.
