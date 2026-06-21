@@ -1,6 +1,7 @@
 import mlx.core as mx
 
 from .basics import softmax, linear
+from extensions import tiny_llm_ext
 import math 
 
 def scaled_dot_product_attention_simple(
@@ -115,6 +116,46 @@ def flash_attention(
     key: mx.array,
     value: mx.array,
     scale: float | None = None,
-    mask: mx.array | None = None,
+    mask: mx.array | str | None = None,
 ) -> mx.array:
-    pass
+    factor=mx.rsqrt(query.shape[-1]) if scale is None else mx.array(scale)
+    factor=factor.astype(query.dtype)
+
+    *batch_dims,H_q,L,E=query.shape
+    *key_batch_dims,H,S,E_key=key.shape
+
+    assert batch_dims == key_batch_dims
+    assert value.shape == (*batch_dims, H, S, E)
+    assert E == E_key
+    assert H_q % H == 0
+
+    query=mx.contiguous(query.reshape(-1,L,E))
+    key=mx.contiguous(key.reshape(-1,S,E))
+    value=mx.contiguous(value.reshape(-1,S,E))
+
+    is_causal=isinstance(mask, str) and mask=="causal"
+    N=query.shape[0]
+
+    if is_causal:
+        mask=causal_mask(L,S,mx.float32)
+        mask=mx.broadcast_to(mask,(*batch_dims,H_q,L,S))
+    elif mask is None:
+        mask=mx.zeros((L,S),dtype=mx.float32)
+        mask=mx.broadcast_to(mask,(*batch_dims,H_q,L,S))
+    else:
+        mask=mx.broadcast_to(mask,(*batch_dims,H_q,L,S))
+
+    mask=mx.contiguous(mask.reshape(N,L,S)).astype(mx.float32)
+
+    output=tiny_llm_ext.flash_attention(
+        query,
+        key,
+        value,
+        mask,
+        factor,
+        is_causal=is_causal,
+        num_heads=H_q,
+        num_kv_heads=H,
+    )
+
+    return mx.contiguous(output.reshape(*batch_dims,H_q,L,E))
