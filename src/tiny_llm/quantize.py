@@ -67,7 +67,7 @@ def quantized_matmul(
     ).reshape(*batch_dims, -1) #reshape 为-1表示自己推断
 
 
-def quantized_linear(
+def quantized_linear(  # 4bit  bf16
     x: mx.array,
     w: QuantizedWeights,
     bias: mx.array | None = None,

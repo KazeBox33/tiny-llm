@@ -76,7 +76,7 @@ def causal_mask(L: int, S: int, dtype: mx.Dtype) -> mx.array: #L 这次有多少
     return mask.astype(dtype)
 
 
-def scaled_dot_product_attention_grouped(  # k v 复用头
+def scaled_dot_product_attention_grouped(  #
     query: mx.array,
     key: mx.array,
     value: mx.array,

@@ -171,12 +171,12 @@ void QuantizedMatmul::eval_cpu( // 输入 a[M,N]  b:[K,N/8]  scale[K,N/128] bias
     throw std::runtime_error("QuantizedMatmul CPU only supports float16 and bfloat16");
 }
 
-void QuantizedMatmul::eval_gpu(
+void QuantizedMatmul::eval_gpu(    //  (768,768)
     const std::vector<mx::array> &inputs,
     std::vector<mx::array> &outputs
 ) {
 #ifdef _METAL_
-    auto &scales = inputs[0];
+    auto &scales = inputs[0];  //  b* scale+ biases.
     auto &biases = inputs[1];
     auto &a = inputs[2];
     auto &b = inputs[3];
@@ -192,7 +192,7 @@ void QuantizedMatmul::eval_gpu(
     const int M = a.shape()[0];
     const int N = a.shape()[1];
     const int K = b.shape()[0];
-
+//output  shape. =[M,K]
     if (N % group_size_ != 0) {
         throw std::runtime_error("quantized_matmul: N must be divisible by group_size");
     }

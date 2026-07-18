@@ -97,7 +97,7 @@ void FlashAttention::eval_cpu(
     if (out.dtype() != mx::float32) {
         throw std::runtime_error("flash_attention: output dtype must be float32");
     }
-    if (!q.flags().row_contiguous || !k.flags().row_contiguous ||
+    if (!q.flags().row_contiguous || !k.flags().row_contiguous || //检查内存连续
         !v.flags().row_contiguous || !mask.flags().row_contiguous) {
         throw std::runtime_error("flash_attention: inputs must be contiguous");
     }
@@ -129,17 +129,17 @@ void FlashAttention::eval_cpu(
 
         constexpr int64_t Br = 32;
         constexpr int64_t Bc = 32;
-        const int64_t Tr = (L + Br - 1) / Br;
+        const int64_t Tr = (L + Br - 1) / Br; //向上取整，算的是Query块
         const int64_t Tc = (S + Bc - 1) / Bc;
-        const int64_t q_kv_heads_ratio = num_heads / num_kv_heads;
-        const int64_t causal_offset = S - L;
+        const int64_t q_kv_heads_ratio = num_heads / num_kv_heads; //表示每几个Q头共享一个KV头
+        const int64_t causal_offset = S - L; //表示当前的query对应着第几个位置
 
         const int64_t q_head_size = L * E;
         const int64_t kv_head_size = S * E;
         const float *q_ptr = q.data<float>();
         const float *k_ptr = k.data<float>();
         const float *v_ptr = v.data<float>();
-        const float *mask_ptr = mask.data<float>();
+        const float *mask_ptr = mask.data<float>(); //mask的起始位置
 
         for (int64_t n = 0; n < N; n++) {
             const float *q_head = q_ptr + n * q_head_size;
@@ -148,16 +148,16 @@ void FlashAttention::eval_cpu(
             const float *v_head = v_ptr + kv_n * kv_head_size;
             const float *mask_head = mask_ptr + n * L * S;
             float *out_head = out_ptr + n * q_head_size;
-
+            //上面部分用来计算起始位置
             for (int64_t i = 0; i < Tr; i++) {
                 const int64_t q_start = i * Br;
                 const int64_t br = std::min(Br, L - q_start);
 
                 std::vector<float> o_i(br * E, 0.0f);
-                std::vector<float> l_i(br, 0.0f);
-                std::vector<float> m_i(br, -std::numeric_limits<float>::infinity());
+                std::vector<float> l_i(br, 0.0f);  // 保存分母累积量
+                std::vector<float> m_i(br, -std::numeric_limits<float>::infinity()); //保存最大值
 
-                for (int64_t j = 0; j < Tc; j++) {
+                for (int64_t j = 0; j < Tc; j++) { // 遍历kv块
                     const int64_t k_start = j * Bc;
                     const int64_t bc = std::min(Bc, S - k_start);
 

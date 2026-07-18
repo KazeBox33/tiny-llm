@@ -3,7 +3,7 @@
 #include "mlx/backend/metal/kernels/utils.h"
 
 template <typename T>
-[[kernel]] void quantized_matmul_w4a16_g128(
+[[kernel]] void quantized_matmul_w4a16_g128(  // output.shape=[768,768]
     device const T* scales [[buffer(0)]],
     device const T* biases [[buffer(1)]],
     device const T* a [[buffer(2)]],
@@ -43,7 +43,7 @@ template <typename T>
             for (int pack_idx = 0; pack_idx < packs_per_item; pack_idx++) {
                 uint32_t q = (packed >> (pack_idx * bits)) & item_mask;
                 float w = static_cast<float>(q) * scale + bias;
-                sum += static_cast<float>(a[a_loc + pack_idx]) * w;
+                sum += static_cast<float>(a[a_loc + pack_idx]) * w; //flaot32
             }
 
             a_loc += packs_per_item;

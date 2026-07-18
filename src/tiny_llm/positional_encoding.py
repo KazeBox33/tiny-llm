@@ -20,7 +20,7 @@ class RoPE:
         dim_idx=mx.arange(0,self.half_dims,dtype=mx.float32)
         freqs=mx.power(base,-dim_idx/self.half_dims)
 
-        position=mx.arange(seq_len,dtype=mx.float32)
+        position=mx.arange(seq_len,dtype=mx.float32)  # 96 48 [x1,y1]  [1,48]
         angles=mx.outer(position,freqs)
 
         self.cos_freqs=mx.cos(angles)

@@ -32,7 +32,7 @@ class Qwen3MultiHeadAttention:
         self.num_kv_heads=num_kv_heads
         self.head_dim=head_dim
         self.scale=mx.rsqrt(head_dim)
-
+# 768 -> vocab_size
         self.wq=wq
         self.wk=wk
         self.wv=wv
