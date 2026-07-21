@@ -441,6 +441,23 @@ Honest conclusion:
 
 ## Resume Bullets To Refine Later
 
+### Week 2 Day 4-5: CPU Flash Attention Correctness Baseline
+
+Implemented a custom MLX Flash Attention primitive and tiled CPU correctness path:
+
+- added a Python wrapper that normalizes attention shapes, dtypes, masks, and contiguous layouts before entering the extension;
+- registered a custom C++ MLX primitive through nanobind and the MLX lazy-execution interface;
+- implemented tiled online softmax without materializing the full attention-score and probability matrices;
+- supported Grouped Query Attention head sharing, `L != S` KV-cache layouts, arbitrary masks, and causal tile pruning;
+- verified correctness against MLX attention across small and large tensor shapes and confirmed the causal block path is faster than an all-zero mask path;
+- passed all 9 targeted CPU Flash Attention tests.
+
+Resume-ready wording:
+
+- Implemented a tiled Flash Attention correctness kernel as a custom MLX C++ primitive, using online softmax, GQA head mapping, and causal block pruning to avoid materializing full attention matrices; validated against MLX across 9 targeted tests.
+
+The Metal GPU kernel and end-to-end model benchmark remain in progress, so no Flash Attention speedup claim is recorded yet.
+
 - Implemented a Qwen3 inference engine from scratch on Apple Silicon using MLX, covering attention, RoPE, RMSNorm, MLP, KV cache, sampling, and quantized model loading.
 - Built KV-cache based autoregressive decoding to avoid repeated prefix computation and improve generation efficiency.
 - Developed and integrated 4-bit quantized weight wrappers plus a fused C++ / Metal dequantization + matrix multiplication path for memory-bandwidth-aware Qwen3 inference.
@@ -453,5 +470,5 @@ Honest conclusion:
 - Continue performance work from `project-notes/optimization/OPTIMIZATION_BACKLOG.md`.
 - Optimize large-`M` quantized matmul with a cooperative/tiled Metal kernel.
 - Benchmark more prompt/output length combinations and batch sizes.
-- Continue Week 2 FlashAttention and batching tasks.
+- Complete Week 2 Flash Attention Task 3 Metal kernel and Task 4 model integration, then continue batching tasks.
 - Add Week 3 paged attention / MoE notes after implementation.

@@ -175,7 +175,7 @@ void FlashAttention::eval_cpu(
                             const int64_t k_pos = k_start + c;
                             float score = 0.0f;
                             for (int64_t e = 0; e < E; e++) {
-                                score += q_head[q_pos * E + e] * k_head[k_pos * E + e];
+                                score += q_head[q_pos * E + e] * k_head[k_pos * E + e]; // 计算 score
                             }
                             score *= scale;
                             if (!block_all_valid) {
@@ -206,7 +206,7 @@ void FlashAttention::eval_cpu(
 
                         l_i[r] = std::exp(old_m_shift[r]) * l_i[r] + row_sum;
                     }
-
+                    // 累积 P 乘 V
                     for (int64_t r = 0; r < br; r++) {
                         const float previous_output_scale = std::exp(old_m_shift[r]);
                         for (int64_t e = 0; e < E; e++) {

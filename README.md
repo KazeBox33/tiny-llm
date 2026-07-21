@@ -18,14 +18,18 @@ Implemented so far:
 - RMSNorm with float32 accumulation
 - Numerically stable SiLU
 - Qwen3 SwiGLU MLP
+- Qwen3 model loading, generation, and sampling
+- KV-cache based autoregressive decoding
+- 4-bit quantized embedding and linear layers
+- Custom MLX C++/Metal quantized matrix multiplication
+- Flash Attention Python wrapper and tiled CPU online-softmax primitive
 
 Planned next:
 
-- Full Qwen3 transformer block
-- Token embedding and LM head path
-- Loading quantized Qwen3 MLX weights into the custom model
-- Text generation and sampling
-- KV cache, paged attention, continuous batching, and serving-oriented optimizations
+- Metal Flash Attention kernel and model integration
+- Prefill, chunked prefill, and continuous batching
+- Paged attention and KV-cache memory management
+- Mixture-of-Experts inference
 
 ## Why This Project
 
@@ -56,6 +60,7 @@ Recent local results:
 ```text
 Week 1 Day 3: 60 passed
 Week 1 Day 4: 22 passed
+Week 2 Day 4 Task 2 (CPU Flash Attention): 9 passed
 ```
 
 ## Setup
@@ -101,6 +106,7 @@ Project notes written during implementation are organized in:
 
 ```text
 project-notes/
+  learning/        current progress and cross-machine handoff
   resume/          resume-ready summaries and measurable results
   benchmarks/      benchmark reports and performance interpretation
   optimization/    future optimization backlog and bottleneck analysis

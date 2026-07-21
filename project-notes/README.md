@@ -10,6 +10,8 @@ This folder contains notes written during the Qwen3 inference learning and optim
   - Human-written benchmark reports and performance interpretation.
 - `optimization/`
   - Future optimization backlog, bottlenecks, and planned engineering work.
+- `learning/`
+  - Current guide progress, the exact learning checkpoint, and cross-machine handoff instructions.
 
 ## Raw Benchmark Outputs
 
@@ -19,4 +21,3 @@ That split is intentional:
 
 - `project-notes/benchmarks/` contains written reports.
 - `benchmarks/` contains generated JSON / text benchmark artifacts.
-
