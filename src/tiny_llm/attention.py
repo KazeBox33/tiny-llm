@@ -100,6 +100,8 @@ def scaled_dot_product_attention_grouped(  #
 
     if mask is not None:
         if mask=="causal":
+            if L > S:
+                raise ValueError("causal attention requires S >= L")
             scores=scores+causal_mask(L,S,scores.dtype)
         else:
             mask=mx.broadcast_to(mask,(*batch_dims,H_q,L,S)) #广播

@@ -18,7 +18,8 @@ def linear(
     return output
 
 
-def silu(x: mx.array) -> mx.array:  # sigmoid性质 sigmoid(-a) = 1 - sigmoid(a)  这里需要实现更加稳定的版本
-    y=1/(1+mx.exp(-mx.abs(x)))
-    sigmoid=mx.where(x>=0,y,1-y)
-    return x*sigmoid
+def silu(x: mx.array) -> mx.array:
+    # 负数分支直接计算小概率，避免低精度下用两个接近 1 的数相减。
+    z = mx.exp(-mx.abs(x))
+    sigmoid = mx.where(x < 0, z / (1 + z), 1 / (1 + z))
+    return x * sigmoid

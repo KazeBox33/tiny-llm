@@ -10,7 +10,17 @@ def simple_generate(
     tokenizer: TokenizerWrapper,
     prompt: str,
     sampler: Callable[[mx.array], mx.array] | None,
-) -> str:
+    max_tokens: int = 256,
+) -> None:
+    if (
+        not isinstance(max_tokens, int)
+        or isinstance(max_tokens, bool)
+        or max_tokens < 0
+    ):
+        raise ValueError("max_tokens must be a non-negative integer")
+    if max_tokens == 0:
+        return
+
     def _step(model, y):
         logits=model(y[None])
         logits=logits[:,-1,:]
@@ -25,11 +35,13 @@ def simple_generate(
         return y
     
     tokens=mx.array(tokenizer.encode(prompt,add_special_tokens=False))
+    if tokens.size == 0:
+        raise ValueError("prompt must encode to at least one token")
 
     detokenizer=tokenizer.detokenizer
     detokenizer.reset()
 
-    while True:
+    for _ in range(max_tokens):
         token=_step(model,tokens)
         mx.eval(token) #这里是MLX强制把这个token算出来 , 否则后面的token.item()拿不到数值
 
@@ -40,6 +52,9 @@ def simple_generate(
 
         detokenizer.add_token(token.item())
         print(detokenizer.last_segment,end="",flush=True)
+
+    detokenizer.finalize()
+    print(detokenizer.last_segment, end="", flush=True)
 
 def simple_generate_with_kv_cache(
     model: Qwen3ModelWeek2, tokenizer: TokenizerWrapper, prompt: str

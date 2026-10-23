@@ -1,1 +1,2 @@
 test_*.py
+!test_week_1_completion.py
