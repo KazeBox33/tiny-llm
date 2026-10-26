@@ -3,7 +3,6 @@ from mlx_lm.tokenizer_utils import TokenizerWrapper
 from .qwen3_week1 import Qwen3ModelWeek1
 from .qwen3_week2 import Qwen3ModelWeek2
 from typing import Callable
-from .kv_cache import TinyKvFullCache
 
 def simple_generate(
     model: Qwen3ModelWeek1,
@@ -57,26 +56,41 @@ def simple_generate(
     print(detokenizer.last_segment, end="", flush=True)
 
 def simple_generate_with_kv_cache(
-    model: Qwen3ModelWeek2, tokenizer: TokenizerWrapper, prompt: str
-) -> str:
-    kv_cache=[TinyKvFullCache() for _ in range(model.num_hidden_layers)] #不同的层数对应不同的kv_cache
+    model: Qwen3ModelWeek2,
+    tokenizer: TokenizerWrapper,
+    prompt: str,
+    max_tokens: int = 256,
+) -> None:
+    if (
+        not isinstance(max_tokens, int)
+        or isinstance(max_tokens, bool)
+        or max_tokens < 0
+    ):
+        raise ValueError("max_tokens must be a non-negative integer")
+    if max_tokens == 0:
+        return
 
     def _step(model, y, offset, kv_cache):
         logits=model(y[None],offset,kv_cache)
         logits=logits[:,-1,:]
 
         logprobs=logits-mx.logsumexp(logits,keepdims=True)
-        y=mx.argmax(logprobs,axis=-1)
+        y=mx.argmax(logprobs,axis=-1).astype(mx.int32)
         return y
 
-    tokens=mx.array(tokenizer.encode(prompt,add_special_tokens=False))
+    tokens=mx.array(
+        tokenizer.encode(prompt,add_special_tokens=False), dtype=mx.int32
+    )
+    if tokens.size == 0:
+        raise ValueError("prompt must encode to at least one token")
+    kv_cache=model.create_kv_cache()
 
     detokenizer=tokenizer.detokenizer
     detokenizer.reset()
 
     offset=0
 
-    while True:  # 这里最大的改动就是 1. 加入并随着步骤更新tokens ， 2 再把下一轮输入改成刚生成的单个token
+    for _ in range(max_tokens):
         token=_step(model,tokens,offset,kv_cache)
         mx.eval(token)
 
@@ -88,6 +102,9 @@ def simple_generate_with_kv_cache(
 
         offset+=tokens.size
         tokens=token
+
+    detokenizer.finalize()
+    print(detokenizer.last_segment,end="",flush=True)
 
 def speculative_generate(
     draft_model: Qwen3ModelWeek2,

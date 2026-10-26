@@ -6,7 +6,7 @@ from .positional_encoding import RoPE
 from typing import Any
 from .embedding import QuantizedEmbedding
 from .quantize import QuantizedWeights, quantized_linear
-from .kv_cache import TinyKvCache
+from .kv_cache import TinyKvCache, TinyKvFullCache
 
 
 class Qwen3MultiHeadAttention:
@@ -252,12 +252,25 @@ class Qwen3ModelWeek2:
 
         self.mlx_model=mlx_model
 
+    def create_kv_cache(self) -> list[TinyKvCache]:
+        return [TinyKvFullCache() for _ in range(self.num_hidden_layers)]
+
     def __call__(
         self,
         inputs: mx.array,
         offset: int,
         cache: list[TinyKvCache],
     ) -> mx.array:
+        if len(cache) != self.num_hidden_layers:
+            raise ValueError(f"expected {self.num_hidden_layers} per-layer caches")
+        if isinstance(offset, int):
+            for layer_index, layer_cache in enumerate(cache):
+                if layer_cache.offset != offset:
+                    raise ValueError(
+                        f"layer {layer_index} cache offset {layer_cache.offset} "
+                        f"does not match model offset {offset}"
+                    )
+
         h=self.embedding(inputs)
 
         mask="causal" if inputs.shape[-1]>1 else None
