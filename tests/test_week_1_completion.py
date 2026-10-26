@@ -1,6 +1,7 @@
 """第一周推理边界的回归测试，不依赖下载的模型权重。"""
 
 import mlx.core as mx
+import mlx.nn as nn
 import numpy as np
 import pytest
 
@@ -9,16 +10,34 @@ from tiny_llm import simple_generate
 
 
 @pytest.mark.parametrize("device", [mx.cpu, mx.gpu], ids=["cpu", "gpu"])
-@pytest.mark.parametrize("dtype", [mx.float16, mx.bfloat16], ids=["f16", "bf16"])
-def test_silu_preserves_small_negative_values(device, dtype):
+@pytest.mark.parametrize(
+    "dtype", [mx.float32, mx.float16, mx.bfloat16], ids=["f32", "f16", "bf16"]
+)
+def test_silu_matches_reference_device_and_precision(device, dtype):
+    with mx.stream(device):
+        values = mx.concatenate(
+            [mx.linspace(-12, 12, 2049), mx.array([-1000.0, 1000.0])]
+        ).astype(dtype)
+        output = silu(values)
+        expected = nn.silu(values)
+        actual = np.array(output.astype(mx.float32))
+        reference = np.array(expected.astype(mx.float32))
+
+    assert output.shape == values.shape
+    assert output.dtype == dtype
+    assert np.isfinite(actual).all()
+    np.testing.assert_array_equal(actual, reference)
+
+
+@pytest.mark.parametrize("device", [mx.cpu, mx.gpu], ids=["cpu", "gpu"])
+def test_silu_float32_matches_mathematical_definition(device):
     values = np.array([-9.0, -7.0, -5.0, 0.0, 5.0, 9.0, 1000.0])
     with mx.stream(device):
-        output = silu(mx.array(values).astype(dtype))
+        output = silu(mx.array(values, dtype=mx.float32))
         actual = np.array(output.astype(mx.float32))
     expected = values / (1 + np.exp(-values))
-    assert output.dtype == dtype
     assert np.all(actual[:3] < 0)
-    np.testing.assert_allclose(actual, expected, rtol=0.03, atol=1e-6)
+    np.testing.assert_allclose(actual, expected, rtol=1e-4, atol=2e-6)
 
 
 @pytest.mark.parametrize("device", [mx.cpu, mx.gpu], ids=["cpu", "gpu"])

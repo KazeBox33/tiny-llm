@@ -52,3 +52,60 @@ Qwen3-0.6B 的两项对照因本地没有对应权重而跳过，未下载新模
 
 最后离线运行 Qwen3-4B，经过聊天模板处理后调用带缓存的生成函数，输出上限为 24 个新词元。
 模型实际输出中文，函数在上限处正常返回。此项只验证完整运行流程，不构成回答质量或性能结论。
+
+## 2026-10-26：定位并修复预填充数值差异
+
+本次继续第一天的正确性检查，尚未实现容量缓存。
+
+逐项替换算子的诊断表明，只把激活函数换为 MLX-LM 使用的 `mlx.nn.silu`，三个固定输入便全部落入课程容差；仅替换量化投影或改变归一化精度不能解决问题。
+使用相同权重、原有注意力和量化投影时，激活函数替换实验得到：
+
+| 随机种子 | 原实现超出容差的元素数 | 参考激活函数超出容差的元素数 | 参考激活函数路径的最大差异 |
+|---|---:|---:|---:|
+| 0 | 0 | 0 | 0.75 |
+| 1 | 664 | 0 | 0.75 |
+| 7 | 17 | 0 | 1.625 |
+
+原因是早先为了保留较小负值，手工重写了 `sigmoid` 的负数分支。
+该公式在实数运算中等价，但多步 BF16 舍入与参考模型不同；误差在 36 层计算后超出最终输出的容差。
+将全部中间运算改成 32 位浮点也没有解决与参考输出的差异。
+这里需要区分数学精度与参考实现的一致性：数学上更精确的局部结果，并不保证与低精度模型执行路径更接近。
+
+最终让 `silu` 与当前 MLX 0.29.1 的公开实现一致：
+
+```python
+@partial(mx.compile, shapeless=True)
+def silu(x: mx.array) -> mx.array:
+    return x * mx.sigmoid(x)
+```
+
+`mx.compile` 编译这段数组计算，`shapeless=True` 允许不同输入形状复用编译结果。
+输入和输出保持原有形状、数据类型与执行设备，不转成 NumPy 或搬到 CPU。
+编译方式也参与数值行为：在 CPU 的半精度测试中，只使用同一公式而不编译，仍可能因中间舍入而与参考算子不同。
+这是沿用框架的基础运算路径，尚未实现第二周第四天的手写融合算子。
+
+参考来源：
+[MLX 0.29.1 激活函数实现](https://github.com/ml-explore/mlx/blob/v0.29.1/python/mlx/nn/layers/activations.py#L127-L133)、
+[同版本 Metal sigmoid 实现](https://github.com/ml-explore/mlx/blob/v0.29.1/mlx/backend/metal/kernels/unary_ops.h#L295-L300)。
+GPU 参考路径中的负数补数运算，可能将 BF16 的较小负输出舍入成零，因此原来的低精度测试强制要求这些值非零，并不符合本项目的参考计算路径。
+新的回归测试要求三种精度在 CPU 和 GPU 上逐元素等于参考算子，同时保留单独的 32 位浮点数学定义检查。
+
+真实权重回归新增 `tests/test_week_2_numerics.py`，固定随机种子 0、1、7，各输入十个词元。
+继续沿用课程原有归一化方式、绝对容差 1.0 和相对容差 0.1，没有放宽标准；缺少本地 4B 权重时跳过测试。
+
+本次检查命令及结果：
+
+```bash
+HF_HUB_OFFLINE=1 pdm run python -m pytest tests/test_week_1_completion.py -k silu -q
+# 8 passed
+HF_HUB_OFFLINE=1 pdm run python -m pytest tests/test_week_2_numerics.py tests/test_week_2_day_1.py -k 'prefill or task_3 or task_4' -q
+# 5 passed, 4 skipped, 3 deselected
+HF_HUB_OFFLINE=1 pdm run test --week 1 --day 4 -- -k task_2
+# 16 passed, 6 deselected
+HF_HUB_OFFLINE=1 pdm run python -m pytest tests/test_week_2_model.py tests/test_week_2_cache.py tests/test_week_2_generation.py tests/test_week_1_completion.py -q
+# 39 passed
+```
+
+四项跳过均属于没有本地权重的 0.6B 和 1.7B 模型，没有下载模型。
+原有缓存隔离、整段与分段计算、错误位置、生成上限、结束词元和文本收尾等检查继续通过。
+通过的是算子和模型正确性检查，没有测量此次修复对速度或峰值内存的影响。

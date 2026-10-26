@@ -1,5 +1,6 @@
 import mlx.core as mx
 import math
+from functools import partial
 
 
 def softmax(x: mx.array, axis: int) -> mx.array:
@@ -18,8 +19,7 @@ def linear(
     return output
 
 
+@partial(mx.compile, shapeless=True)
 def silu(x: mx.array) -> mx.array:
-    # 负数分支直接计算小概率，避免低精度下用两个接近 1 的数相减。
-    z = mx.exp(-mx.abs(x))
-    sigmoid = mx.where(x < 0, z / (1 + z), 1 / (1 + z))
-    return x * sigmoid
+    # 与参考模型使用同一原语，保留当前设备在模型精度下的舍入顺序。
+    return x * mx.sigmoid(x)
