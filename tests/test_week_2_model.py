@@ -33,12 +33,14 @@ def models():
     return Qwen3ModelWeek2(reference), reference
 
 
-def test_cache_factory_isolates_layers_and_requests(models):
+@pytest.mark.parametrize("capacity", [None, 7], ids=["concat", "bounded"])
+def test_cache_factory_isolates_layers_and_requests(models, capacity):
     model, _ = models
-    first = model.create_kv_cache()
-    second = model.create_kv_cache()
+    first = model.create_kv_cache(capacity=capacity)
+    second = model.create_kv_cache(capacity=capacity)
     assert len(first) == len(second) == 2
     assert len({id(cache) for cache in first + second}) == 4
+    assert all(entry.capacity == capacity for entry in first + second)
 
     key = mx.zeros((1, 2, 3, 32), dtype=mx.bfloat16)
     first[0].update_and_fetch(key, key)
@@ -47,17 +49,21 @@ def test_cache_factory_isolates_layers_and_requests(models):
 
 
 @pytest.mark.parametrize("chunk_lengths", [(6,), (1, 1, 1, 1, 1, 1), (3, 1, 2)])
-def test_cached_model_matches_full_sequence(models, chunk_lengths):
+@pytest.mark.parametrize("capacity", [None, 8], ids=["concat", "bounded"])
+def test_cached_model_matches_full_sequence(models, chunk_lengths, capacity):
     model, reference = models
     tokens = mx.array([[1, 4, 2, 5, 3, 6]], dtype=mx.int32)
     expected = reference(tokens)
-    cache = model.create_kv_cache()
+    cache = model.create_kv_cache(capacity=capacity)
     outputs = []
     offset = 0
     for length in chunk_lengths:
         outputs.append(model(tokens[:, offset : offset + length], offset, cache))
         offset += length
         assert [entry.offset for entry in cache] == [offset, offset]
+        if capacity is not None:
+            assert all(entry.key_values[0].shape[2] == capacity for entry in cache)
+            assert all(entry.logical_copy_bytes == 0 for entry in cache)
 
     actual = mx.concatenate(outputs, axis=1)
     assert actual.shape == expected.shape == (1, 6, 32)
@@ -85,3 +91,19 @@ def test_incomplete_cache_list_is_rejected(models):
     model, _ = models
     with pytest.raises(ValueError, match="expected 2 per-layer caches"):
         model(mx.array([[1]], dtype=mx.int32), 0, model.create_kv_cache()[:1])
+
+
+def test_model_capacity_overflow_preserves_all_layer_caches(models):
+    model, _ = models
+    cache = model.create_kv_cache(capacity=3)
+    mx.eval(model(mx.array([[1, 2, 3]], dtype=mx.int32), 0, cache))
+    previous = [(entry.key_values, entry.slice_write_bytes) for entry in cache]
+
+    with pytest.raises(ValueError, match="capacity 3 exceeded"):
+        model(mx.array([[4]], dtype=mx.int32), 3, cache)
+
+    for entry, (storage, writes) in zip(cache, previous):
+        assert entry.offset == 3
+        assert entry.key_values is storage
+        assert entry.slice_write_bytes == writes
+        assert entry.logical_copy_bytes == 0

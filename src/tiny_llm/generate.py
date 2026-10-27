@@ -60,6 +60,7 @@ def simple_generate_with_kv_cache(
     tokenizer: TokenizerWrapper,
     prompt: str,
     max_tokens: int = 256,
+    use_bounded_kv_capacity: bool = True,
 ) -> None:
     if (
         not isinstance(max_tokens, int)
@@ -67,6 +68,8 @@ def simple_generate_with_kv_cache(
         or max_tokens < 0
     ):
         raise ValueError("max_tokens must be a non-negative integer")
+    if not isinstance(use_bounded_kv_capacity, bool):
+        raise ValueError("use_bounded_kv_capacity must be a bool")
     if max_tokens == 0:
         return
 
@@ -83,7 +86,8 @@ def simple_generate_with_kv_cache(
     )
     if tokens.size == 0:
         raise ValueError("prompt must encode to at least one token")
-    kv_cache=model.create_kv_cache()
+    capacity = int(tokens.size) + max_tokens if use_bounded_kv_capacity else None
+    kv_cache = model.create_kv_cache(capacity=capacity)
 
     detokenizer=tokenizer.detokenizer
     detokenizer.reset()

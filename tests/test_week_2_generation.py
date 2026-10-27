@@ -42,9 +42,9 @@ class ScriptedCachedModel:
         self.calls = []
         self.cache_creations = 0
 
-    def create_kv_cache(self):
+    def create_kv_cache(self, capacity=None):
         self.cache_creations += 1
-        self.cache = [TinyKvFullCache(), TinyKvFullCache()]
+        self.cache = [TinyKvFullCache(capacity=capacity) for _ in range(2)]
         return self.cache
 
     def __call__(self, tokens, offset, cache):
@@ -59,24 +59,34 @@ class ScriptedCachedModel:
         return logits
 
 
-def test_generation_prefills_once_and_decodes_single_tokens(capsys):
+@pytest.mark.parametrize("bounded", [False, True], ids=["concat", "bounded"])
+def test_generation_prefills_once_and_decodes_single_tokens(capsys, bounded):
     model = ScriptedCachedModel([2, 3, 0])
     tokenizer = BufferedTokenizer([1, 2, 3, 4, 5, 6])
-    assert simple_generate_with_kv_cache(model, tokenizer, "prompt") is None
+    assert simple_generate_with_kv_cache(
+        model, tokenizer, "prompt", use_bounded_kv_capacity=bounded
+    ) is None
     assert model.calls == [([list(range(1, 7))], 0), ([[2]], 6), ([[3]], 7)]
     assert capsys.readouterr().out == "AB"
     assert model.cache_creations == tokenizer.detokenizer_reads == 1
     assert [entry.offset for entry in model.cache] == [8, 8]
+    assert all(entry.uses_capacity == bounded for entry in model.cache)
 
 
 @pytest.mark.parametrize("limit", [0, 1, 3])
-def test_cached_generation_stops_at_output_limit(capsys, limit):
+@pytest.mark.parametrize("bounded", [False, True], ids=["concat", "bounded"])
+def test_cached_generation_stops_at_output_limit(capsys, limit, bounded):
     model = ScriptedCachedModel([2] * (limit + 1))
     tokenizer = BufferedTokenizer([5, 0])
-    simple_generate_with_kv_cache(model, tokenizer, "prompt", max_tokens=limit)
+    simple_generate_with_kv_cache(
+        model, tokenizer, "prompt", max_tokens=limit, use_bounded_kv_capacity=bounded
+    )
     assert capsys.readouterr().out == "A" * limit
     assert len(model.calls) == limit
     assert model.cache_creations == (1 if limit else 0)
+    if limit:
+        expected_capacity = 2 + limit if bounded else None
+        assert all(entry.capacity == expected_capacity for entry in model.cache)
 
 
 @pytest.mark.parametrize("limit", [-1, True, 1.5])
@@ -99,8 +109,39 @@ def test_empty_prompt_is_rejected_before_cache_creation():
 def test_generation_creates_fresh_caches_for_each_request(capsys):
     model = ScriptedCachedModel([2, 0, 3, 0])
     tokenizer = BufferedTokenizer([5, 6])
-    simple_generate_with_kv_cache(model, tokenizer, "first")
-    simple_generate_with_kv_cache(model, tokenizer, "second")
-    assert model.calls == [([[5, 6]], 0), ([[2]], 2), ([[5, 6]], 0), ([[3]], 2)]
+    simple_generate_with_kv_cache(model, tokenizer, "first", max_tokens=4)
+    first = model.cache
+    tokenizer.prompt_tokens = [5, 6, 7]
+    simple_generate_with_kv_cache(model, tokenizer, "second", max_tokens=2)
+    second = model.cache
+    assert model.calls == [([[5, 6]], 0), ([[2]], 2), ([[5, 6, 7]], 0), ([[3]], 3)]
     assert model.cache_creations == tokenizer.detokenizer_reads == 2
+    assert len({id(entry) for entry in first + second}) == 4
+    assert all(entry.capacity == 6 and entry.offset == 3 for entry in first)
+    assert all(entry.capacity == 5 and entry.offset == 4 for entry in second)
     assert capsys.readouterr().out == "AB"
+
+
+def test_generation_defaults_to_the_tokenized_request_bound(capsys):
+    model = ScriptedCachedModel([2, 3, 2])
+    tokenizer = BufferedTokenizer([1, 2, 3, 4, 5, 6])
+    simple_generate_with_kv_cache(model, tokenizer, "任意文本", max_tokens=3)
+
+    assert capsys.readouterr().out == "ABA"
+    assert model.calls == [([list(range(1, 7))], 0), ([[2]], 6), ([[3]], 7)]
+    for entry in model.cache:
+        assert entry.capacity == 9
+        assert entry.offset == 8
+        assert entry.key_values[0].shape == entry.key_values[1].shape == (1, 1, 9, 2)
+        assert entry.logical_copy_bytes == entry.physical_growth_copy_bytes == 0
+        assert entry.slice_write_bytes == 64
+
+
+@pytest.mark.parametrize("bounded", [1, None, "yes"])
+def test_invalid_capacity_mode_is_rejected_before_cache_creation(bounded):
+    model = ScriptedCachedModel([2])
+    with pytest.raises(ValueError, match="use_bounded_kv_capacity must be a bool"):
+        simple_generate_with_kv_cache(
+            model, BufferedTokenizer([5]), "prompt", use_bounded_kv_capacity=bounded
+        )
+    assert model.cache_creations == 0

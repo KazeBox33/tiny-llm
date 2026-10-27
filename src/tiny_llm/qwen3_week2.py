@@ -252,8 +252,10 @@ class Qwen3ModelWeek2:
 
         self.mlx_model=mlx_model
 
-    def create_kv_cache(self) -> list[TinyKvCache]:
-        return [TinyKvFullCache() for _ in range(self.num_hidden_layers)]
+    def create_kv_cache(self, capacity: int | None = None) -> list[TinyKvCache]:
+        return [
+            TinyKvFullCache(capacity=capacity) for _ in range(self.num_hidden_layers)
+        ]
 
     def __call__(
         self,
