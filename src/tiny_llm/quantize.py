@@ -4,6 +4,37 @@ from typing import Any
 from extensions import tiny_llm_ext
 
 
+def dequantize_weights(
+    weight: mx.array, # (1, 3, 320)
+    scales: mx.array, # (1,3,320*8//128)
+    biases: mx.array, # (1,3,320*8//128)
+    group_size: int, # 128
+    bits: int,
+) -> mx.array:
+    """恢复选中的 W4/G128 权重行，保留输入的所有前导维度。"""
+    if bits != 4 or group_size != 128:
+        raise ValueError("dequantize_weights requires 4-bit weights and group_size=128")
+    if weight.ndim < 1 or weight.dtype != mx.uint32:
+        raise ValueError("packed weights must have a last dimension and dtype uint32")
+    if scales.dtype != mx.bfloat16 or biases.dtype != mx.bfloat16:
+        raise ValueError("scales and biases must use bfloat16")
+    width = weight.shape[-1] * 8
+    group_shape = (*weight.shape[:-1], width // group_size)
+    if width % group_size or scales.shape != group_shape or biases.shape != group_shape:
+        raise ValueError("scale/bias shapes must match the packed rows and quantization groups")
+
+    # 一个 uint32 从低位到高位依次保存八个四位编码。
+    shifts = mx.arange(8, dtype=mx.uint32) * 4
+    codes = (weight[..., None] >> shifts) & 0xF # (1,3,320,8)
+    codes = codes.reshape(*group_shape, group_size).astype(mx.float32)
+    # 在每组内广播缩放和偏移，先用 FP32 恢复，最后统一舍入为 BF16。
+    values = (
+        codes * scales[..., None].astype(mx.float32)
+        + biases[..., None].astype(mx.float32)
+    )
+    return values.reshape(*weight.shape[:-1], width).astype(mx.bfloat16)
+
+
 def dequantize_linear(mx_layer: Any) -> mx.array:
     w = mx.dequantize(
         mx_layer.weight,
