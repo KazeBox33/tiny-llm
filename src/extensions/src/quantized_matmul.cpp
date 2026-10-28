@@ -36,6 +36,33 @@ mx::array quantized_matmul(
         throw std::runtime_error("quantized_matmul currently only supports group_size=128");
     }
 
+    // 先验证数组描述，再创建延迟计算图，避免内核按错误形状或类型读取数据。
+    if (a.ndim() != 2 || b.ndim() != 2 || scales.ndim() != 2 || biases.ndim() != 2) {
+        throw std::runtime_error("quantized_matmul: a, b, scales and biases must be rank-2 arrays");
+    }
+    if (a.dtype() != mx::float16 && a.dtype() != mx::bfloat16) {
+        throw std::runtime_error("quantized_matmul: a must use float16 or bfloat16");
+    }
+    if (scales.dtype() != a.dtype() || biases.dtype() != a.dtype()) {
+        throw std::runtime_error("quantized_matmul: a, scales and biases must use the same dtype");
+    }
+    if (b.dtype() != mx::uint32) {
+        throw std::runtime_error("quantized_matmul: packed b must use uint32");
+    }
+
+    const int N = a.shape()[1];
+    const int K = b.shape()[0];
+    if (N % group_size != 0) {
+        throw std::runtime_error("quantized_matmul: N must be divisible by group_size");
+    }
+    if (b.shape()[1] != N / 8) {
+        throw std::runtime_error("quantized_matmul: packed b must have shape [K, N/8]");
+    }
+    const mx::Shape group_shape = {K, N / group_size};
+    if (scales.shape() != group_shape || biases.shape() != group_shape) {
+        throw std::runtime_error("quantized_matmul: scales and biases must have shape [K, N/group_size]");
+    }
+
     auto stream = mx::to_stream(s);
 
     auto out_shape = a.shape();
@@ -188,15 +215,14 @@ void QuantizedMatmul::eval_gpu(    //  (768,768)
     if (!b.flags().row_contiguous) {
         throw std::runtime_error("quantized_matmul: b must be contiguous");
     }
+    if (!scales.flags().row_contiguous || !biases.flags().row_contiguous) {
+        throw std::runtime_error("quantized_matmul: scales and biases must be contiguous");
+    }
 
     const int M = a.shape()[0];
     const int N = a.shape()[1];
     const int K = b.shape()[0];
 //output  shape. =[M,K]
-    if (N % group_size_ != 0) {
-        throw std::runtime_error("quantized_matmul: N must be divisible by group_size");
-    }
-
     auto &s = stream();
     auto &d = mx::metal::device(s.device);
     out.set_data(mx::allocator::malloc(out.nbytes()));
