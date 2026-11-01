@@ -22,7 +22,8 @@ mx::array quantized_matmul(
     const mx::array &a,
     const mx::array &b,
     bool transpose_b,
-    mx::StreamOrDevice s
+    mx::StreamOrDevice s,
+    bool use_simd
 ) {  // a=x , b=w.weights  b 是 packed 4-bit 权重，物理 shape 是 [K, N/8]，逻辑上代表 [K, N]。
     if (!transpose_b) {
         throw std::runtime_error("quantized_matmul currently expects transpose_b=true");
@@ -71,7 +72,7 @@ mx::array quantized_matmul(
     return mx::array(
         out_shape,
         a.dtype(),
-        std::make_shared<QuantizedMatmul>(stream, group_size, bits, transpose_b),
+        std::make_shared<QuantizedMatmul>(stream, group_size, bits, transpose_b, use_simd),
         {scales, biases, a, b}
     );
 }
@@ -228,11 +229,14 @@ void QuantizedMatmul::eval_gpu(    //  (768,768)
     out.set_data(mx::allocator::malloc(out.nbytes()));
 
     auto library = d.get_library("tiny_llm_ext");
+    const bool use_matvec = use_simd_ && M > 0 && M <= 8;
     const char *kernel_name = nullptr;
     if (out.dtype() == mx::float16) { //根据dtype选择kernel
-        kernel_name = "quantized_matmul_w4a16_g128_f16";
+        kernel_name = use_matvec ? "quantized_matvec_x2_w4a16_g128_f16"
+                                : "quantized_matmul_w4a16_g128_f16";
     } else if (out.dtype() == mx::bfloat16) {
-        kernel_name = "quantized_matmul_w4a16_g128_bf16";
+        kernel_name = use_matvec ? "quantized_matvec_x2_w4a16_g128_bf16"
+                                : "quantized_matmul_w4a16_g128_bf16";
     } else {
         throw std::runtime_error("QuantizedMatmul GPU only supports float16 and bfloat16");
     }
@@ -250,6 +254,23 @@ void QuantizedMatmul::eval_gpu(    //  (768,768)
     compute_encoder.set_bytes(M, 5);
     compute_encoder.set_bytes(N, 6);
     compute_encoder.set_bytes(K, 7);
+
+    if (use_matvec) {
+        // Two SIMD groups, each reducing two output columns for one input row.
+        constexpr int simd_width = 32;
+        constexpr int simd_groups = 2;
+        constexpr int outputs_per_group = 2;
+        if (kernel->threadExecutionWidth() != simd_width ||
+            kernel->maxTotalThreadsPerThreadgroup() < simd_width * simd_groups) {
+            throw std::runtime_error("quantized_matvec requires two 32-lane SIMD groups");
+        }
+        constexpr int outputs_per_threadgroup = simd_groups * outputs_per_group;
+        compute_encoder.dispatch_threadgroups(
+            MTL::Size((K + outputs_per_threadgroup - 1) / outputs_per_threadgroup, M, 1),
+            MTL::Size(simd_width * simd_groups, 1, 1)
+        );
+        return;
+    }
 
     size_t tgp_size = kernel->maxTotalThreadsPerThreadgroup();  //获取一个threadgroup最多能放多少线程 
     int x_size = 32;
@@ -282,7 +303,8 @@ bool QuantizedMatmul::is_equivalent(const mx::Primitive &other) const {
     const auto &primitive = static_cast<const QuantizedMatmul &>(other);
     return group_size_ == primitive.group_size_ &&
            bits_ == primitive.bits_ &&
-           transpose_b_ == primitive.transpose_b_;
+           transpose_b_ == primitive.transpose_b_ &&
+           use_simd_ == primitive.use_simd_;
 }
 
 }  // namespace tiny_llm_ext

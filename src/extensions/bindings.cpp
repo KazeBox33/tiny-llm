@@ -42,7 +42,9 @@ NB_MODULE(_ext, m) { //创建python模块
         "a"_a,
         "b"_a,
         "transpose_b"_a = false,
-        "stream"_a = nb::none()
+        "stream"_a = nb::none(),
+        nb::kw_only(),
+        "use_simd"_a = true
 );
 
     m.def(

@@ -80,6 +80,8 @@ def quantized_matmul(
     a: mx.array,
     b: mx.array,
     transpose_b: bool = False,
+    *,
+    use_simd: bool = True,
 ) -> mx.array:
     *batch_dims, hidden_dim = a.shape
     a = a.reshape(-1, hidden_dim)
@@ -95,7 +97,23 @@ def quantized_matmul(
         a,
         b,
         transpose_b,
+        use_simd=use_simd,
     ).reshape(*batch_dims, -1) #reshape 为-1表示自己推断
+
+
+def quantized_matmul_vanilla(
+    scales: mx.array,
+    biases: mx.array,
+    group_size: int,
+    bits: int,
+    a: mx.array,
+    b: mx.array,
+    transpose_b: bool = False,
+) -> mx.array:
+    """Keep the one-thread-per-output Metal schedule callable as a control."""
+    return quantized_matmul(
+        scales, biases, group_size, bits, a, b, transpose_b, use_simd=False
+    )
 
 
 def quantized_linear(  # 4bit  bf16

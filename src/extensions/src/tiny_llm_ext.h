@@ -20,13 +20,14 @@ mx::array quantized_matmul(
     const mx::array &a,
     const mx::array &b,
     bool transpose_b=false,
-    mx::StreamOrDevice s={} 
+    mx::StreamOrDevice s={},
+    bool use_simd=true
 );
 
 class QuantizedMatmul : public mx::Primitive{ //这是一个MLX自定义的底层算子
 public: 
-    explicit QuantizedMatmul(mx::Stream stream, int group_size , int bits, bool transpose_b):mx::Primitive(stream),group_size_(group_size),
-    bits_(bits),transpose_b_(transpose_b){}
+    explicit QuantizedMatmul(mx::Stream stream, int group_size , int bits, bool transpose_b, bool use_simd):mx::Primitive(stream),group_size_(group_size),
+    bits_(bits),transpose_b_(transpose_b),use_simd_(use_simd){}
 
     void eval_cpu(const std::vector<mx::array> & inputs,
         std::vector<mx::array>& outputs) override;
@@ -41,6 +42,7 @@ private:
     int group_size_;
     int bits_;
     bool transpose_b_;
+    bool use_simd_;
 };
 
 mx::array flash_attention(
